@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in the pipeline, database, or review UI does not behave as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **This is a public repository. Never post clinical data.**
+        > Do not include note text, record excerpts, cohort CSVs, extracted facts, ledger rows,
+        > summaries, or any other output derived from MIMIC / PhysioNet data. These are governed
+        > by the PhysioNet DUA and cannot be shared here. Refer to records by `subject_id` /
+        > `hadm_id` and stage name only. Issues containing data will be deleted.
+  - type: checkboxes
+    id: data-check
+    attributes:
+      label: Data confirmation
+      options:
+        - label: This issue contains no note text, record excerpts, or model output derived from DUA data.
+          required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      options:
+        - Fact extraction
+        - Ledger build / consolidation
+        - Summary generation (TL;DR / hot window / compacted)
+        - Judge / evaluation
+        - Physician feedback / support loop
+        - Review UI
+        - Setup / database
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed. Include the artifact or table involved.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands run, and `subject_id` / `hadm_id` / `fact_id` references (IDs only, no text).
+      placeholder: |
+        1. Ran ...
+        2. subject_id=..., hadm_id=...
+        3. Saw ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, Ollama version, models used, commit hash (`git rev-parse --short HEAD`).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      description: Tracebacks or log lines. Remove any clinical text before pasting.
+      render: shell

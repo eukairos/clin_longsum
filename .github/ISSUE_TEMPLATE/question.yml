@@ -1,0 +1,29 @@
+name: Question
+description: Ask about pipeline behaviour, or flag where the documentation is wrong or unclear.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **This is a public repository. Never post clinical data.**
+        > Do not include note text, record excerpts, or any output derived from MIMIC / PhysioNet
+        > data. Refer to records by `subject_id` / `hadm_id` only. Issues containing data will be deleted.
+  - type: checkboxes
+    id: data-check
+    attributes:
+      label: Data confirmation
+      options:
+        - label: This question contains no note text, record excerpts, or model output derived from DUA data.
+          required: true
+  - type: input
+    id: doc
+    attributes:
+      label: Related document
+      description: File or section this is about, if any (e.g. `References/PIPELINE.md`, section 3).
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
