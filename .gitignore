@@ -9,6 +9,7 @@
 .env
 .env.*
 !.env.example
+setup/scan_identifiers.py
 
 # ── Data directories (default + every run namespace: data_<ns>/) ────────────────
 data/
