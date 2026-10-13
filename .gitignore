@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# clin_longsum .gitignore
+# DUA NOTE: this project is developed against a PhysioNet-credentialed BHC source.
+# NO patient-derived data may be committed -- initial, interim, or output. The
+# rules below block all data artifacts by directory AND by extension, belt-and-braces.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Credentials / environment ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Data directories (default + every run namespace: data_<ns>/) ────────────────
+data/
+data_*/
+**/data/
+**/data_*/
+output/
+**/output/
+src/studies/ledger_studies
+
+# ── Patient-derived data files, wherever they land ──────────────────────────────
+# The source CSV, cohort draws, per-stage JSONL, ledgers, eval outputs, review
+# worklists -- all derived from the credentialed source. Blanket-block by extension.
+*.csv
+*.jsonl
+*.parquet
+*.feather
+
+# Review-tool artifacts (generated from patient data). The clinical_review_tools/
+# folder currently lives under src/, so the leading **/ is REQUIRED -- a rule with a
+# mid-path slash but no leading **/ would anchor to the repo root and miss it.
+# (*.csv / *.jsonl are already blanket-blocked above; these add .html/.docx/.xlsx.)
+**/clinical_review_tools/**/*.csv
+**/clinical_review_tools/**/*.jsonl
+**/clinical_review_tools/**/*.html
+**/clinical_review_tools/**/*.docx
+**/clinical_review_tools/**/*.xlsx
+
+# ── Curated reference asset that IS safe to ship ────────────────────────────────
+# dictionary_abbreviations.tsv (UMLS-built abbreviation map; no patient data). It
+# must live OUTSIDE data/ to be committable -- a file under an ignored directory
+# cannot be re-included by git. The pipeline reads it from config.ABBREV_TSV
+# (src/resources/). No blanket *.tsv rule is set, so it ships by default.
+!**/dictionary_abbreviations.tsv
+
+# ── Large model / binary artefacts ──────────────────────────────────────────────
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.ckpt
+*.npy
+*.faiss
+
+# ── Python ──────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ── DUA audit scratch (ripgrep / Select-String hitlists may contain real identifiers) ─
+dua_hits.txt
+hitlist.txt
+LICENSING.md
+
+# ── OS ───────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# Local, un-shippable adjudications for the review tools (derived from credentialed data).
+# review_merge_faithfulness.py imports this if present and merges it over the shipped template.
+**/adjudications_local.py

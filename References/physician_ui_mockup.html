@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<!--
+clin_longsum - tiered longitudinal clinical summarization
+Copyright (C) 2026 Eukairos
+SPDX-License-Identifier: AGPL-3.0-only
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of version 3 of the GNU Affero General Public License as published
+by the Free Software Foundation. This program is distributed WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU Affero General Public License for details.
+-->
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LongSum &ndash; Tiered Review (static mockup, synthetic data)</title>
+<!-- No external CDNs: this tool runs on a restricted/offline workstation. System
+     fonts below; markdown is rendered by a small inline md() function. -->
+<style>
+:root {
+  --bg:#0f1117; --surface:#181c27; --surface2:#1e2332; --border:#2a3042; --border2:#3a4255;
+  --text:#e2e8f4; --text-muted:#8a94a9; --text-dim:#5a6478;
+  --accent:#4f8ef7; --accent-dim:#1e3a6e;
+  --high:#f59c38; --high-bg:#2a1e0a; --high-border:#6b3f0a;
+  --low:#3ecf7a; --low-bg:#0a2015; --low-border:#1a5030;
+  --fail:#f0524d; --fail-bg:#2a0d0c; --fail-border:#6b1714;
+  --neg:#a78bfa;
+  --t1:#f0524d; --t2:#f59c38; --t3:#4f8ef7;
+  --mono: ui-monospace, 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --radius:5px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; overflow:hidden; }
+body { font-family:var(--sans); font-size:15px; background:var(--bg); color:var(--text); display:flex; flex-direction:column; }
+
+#hdr { height:50px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 18px; gap:14px; flex-shrink:0; }
+#hdr .logo { font-family:var(--mono); font-size:15px; font-weight:500; color:var(--accent); letter-spacing:0.02em; }
+#hdr .sep { color:var(--border2); }
+#hdr .title { font-size:14px; color:var(--text-muted); }
+#hdr .spacer { flex:1; }
+#btn-refresh { font-family:var(--mono); font-size:13px; padding:5px 13px; background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text-muted); cursor:pointer; }
+#btn-refresh:hover { color:var(--text); border-color:var(--accent); }
+#queue-count { font-family:var(--mono); font-size:13px; padding:4px 11px; background:var(--accent-dim); border:1px solid var(--accent); border-radius:var(--radius); color:var(--accent); }
+
+#layout { flex:1; display:flex; overflow:hidden; }
+
+#sidebar { width:270px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+#sidebar-hdr { padding:11px 15px 9px; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:11px; color:var(--text-dim); letter-spacing:0.08em; text-transform:uppercase; flex-shrink:0; }
+#sidebar-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+#sidebar-tabs .tab { flex:1; min-width:0; padding:10px 4px; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-dim); font-family:var(--mono); font-size:10px; letter-spacing:0.01em; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; }
+#sidebar-tabs .tab:hover { color:var(--text-muted); }
+#sidebar-tabs .tab.active { color:var(--text); border-bottom-color:var(--accent); }
+#sidebar-tabs .tab-n { font-size:10px; padding:1px 4px; border-radius:8px; background:var(--surface2); border:1px solid var(--border2); color:var(--text-muted); }
+#sidebar-tabs .tab.has-loss .tab-n { color:var(--fail); border-color:var(--fail-border); background:var(--fail-bg); }
+.ra-actions { display:flex; gap:9px; align-items:center; margin-top:11px; flex-wrap:wrap; }
+.ra-actions input[type=text] { background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-family:var(--sans); font-size:13px; padding:6px 10px; }
+.ra-actions #ret-notes { flex:1; min-width:160px; }
+.ra-status { font-size:13px; color:var(--text-muted); } .ra-status.ok { color:var(--low); } .ra-status.err { color:var(--fail); }
+.ra-rowbtn { font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:3px; border:1px solid; cursor:pointer; background:none; }
+.ra-rowbtn.res { color:var(--low); border-color:var(--low-border); }
+.ra-rowbtn.res:hover { background:var(--low-bg); }
+.ra-rowbtn.dis { color:var(--high); border-color:var(--high-border); margin-left:5px; }
+.ra-rowbtn.dis:hover { background:var(--high-bg); }
+td.ra-act { white-space:nowrap; }
+#queue-list { flex:1; overflow-y:auto; }
+#queue-list::-webkit-scrollbar { width:4px; }
+#queue-list::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+.q-item { padding:11px 15px 10px; border-bottom:1px solid var(--border); cursor:pointer; border-left:3px solid transparent; }
+.q-item:hover { background:var(--surface2); }
+.q-item.active { background:var(--surface2); border-left-color:var(--accent); }
+.q-item.has-loss { border-left-color:var(--fail); }
+.q-item.has-loss.active { border-left-color:var(--accent); }
+.q-row1 { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+.q-sid { font-family:var(--mono); font-size:14px; font-weight:500; }
+.q-row2 { font-size:13px; color:var(--text-muted); }
+.q-counts { display:flex; gap:5px; margin-top:5px; flex-wrap:wrap; }
+.chip { font-family:var(--mono); font-size:11px; padding:2px 6px; border-radius:3px; border:1px solid; letter-spacing:0.02em; }
+.chip.node { color:var(--low); background:var(--low-bg); border-color:var(--low-border); }
+.chip.epi  { color:var(--accent); background:var(--accent-dim); border-color:#2a4a8a; }
+.chip.flag { color:var(--fail); background:var(--fail-bg); border-color:var(--fail-border); }
+.chip.pending  { color:var(--high); background:var(--high-bg); border-color:var(--high-border); }
+.chip.approved { color:var(--low); background:var(--low-bg); border-color:var(--low-border); }
+#queue-empty { padding:30px 15px; text-align:center; color:var(--text-dim); font-size:14px; line-height:1.6; }
+
+#main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+#placeholder { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--text-dim); }
+#placeholder .icon { font-size:32px; opacity:0.25; }
+#content { display:none; flex:1; flex-direction:column; overflow:hidden; }
+#content.visible { display:flex; }
+
+#pt-header { padding:11px 18px 9px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; display:flex; align-items:center; gap:11px; flex-wrap:wrap; }
+#pt-id { font-family:var(--mono); font-size:17px; font-weight:500; }
+.pt-meta { font-size:14px; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.pt-meta .sep { color:var(--border2); }
+.svc-tag { font-size:12px; font-family:var(--mono); padding:2px 7px; background:var(--surface2); border:1px solid var(--border2); border-radius:3px; }
+#tax-tag { font-size:12px; font-family:var(--mono); padding:2px 7px; color:var(--text-dim); border:1px solid var(--border2); border-radius:3px; margin-left:auto; }
+
+/* Bound + scroll like #concern-pane: a long incoming admission (source BHC + editable Tier 1)
+   must not push the Approve button in #controls past the clipped bottom of #content. */
+#incoming-pane { flex-shrink:0; padding:16px 20px 0; max-height:55vh; overflow-y:auto; }
+#est-scroll { flex:1; min-height:0; overflow-y:auto; padding:14px 20px 20px; }
+/* A concern with many unsupported statements can grow taller than the viewport. Bound the
+   pane and scroll it internally so the Dismiss/Resolve buttons at the bottom stay reachable. */
+#concern-pane { max-height:65vh; overflow-y:auto; }
+#est-scroll::-webkit-scrollbar { width:6px; }
+#est-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+/* Established record (collapsible reference) */
+details.established { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); margin-top:0; }
+details.established > summary { cursor:pointer; padding:11px 15px; font-family:var(--mono); font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); list-style:none; display:flex; align-items:center; gap:8px; }
+details.established > summary::-webkit-details-marker { display:none; }
+details.established > summary::before { content:"\25B8"; color:var(--text-dim); }
+details.established[open] > summary::before { content:"\25BE"; }
+details.established > summary:hover { color:var(--text); }
+.est-body { padding:4px 15px 15px; }
+
+.section { margin-bottom:16px; }
+.section-hdr { font-family:var(--mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:7px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+.section-hdr .n { color:var(--text-dim); }
+.card { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:13px 16px; }
+.tldr-card { border-color:var(--accent-dim); }
+.epi { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:12px 15px; margin-bottom:9px; }
+.epi-hdr { display:flex; align-items:center; gap:9px; margin-bottom:6px; font-size:13px; color:var(--text-muted); }
+.epi-seq { font-family:var(--mono); font-size:12px; color:var(--accent); background:var(--accent-dim); border:1px solid #2a4a8a; border-radius:3px; padding:1px 7px; }
+
+.md { font-size:15px; }
+.md h1,.md h2 { font-size:16px; font-weight:600; margin:10px 0 6px; }
+.md h3 { font-size:14px; font-weight:600; margin:8px 0 4px; color:var(--accent); font-family:var(--mono); }
+.md p { margin-bottom:7px; line-height:1.75; }
+.md ul,.md ol { margin:4px 0 7px 20px; }
+.md li { margin-bottom:3px; line-height:1.7; }
+.md hr { border:none; border-top:1px solid var(--border); margin:8px 0; }
+.md code { font-family:var(--mono); font-size:13px; background:var(--surface); padding:1px 4px; border-radius:3px; }
+
+.led-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); }
+table.led { width:100%; border-collapse:collapse; font-size:14px; }
+table.led th { text-align:left; font-family:var(--mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase; color:var(--text-dim); padding:8px 11px; border-bottom:1px solid var(--border); background:var(--surface); }
+table.led td { padding:8px 11px; border-bottom:1px solid var(--border); vertical-align:top; }
+table.led tr:last-child td { border-bottom:none; }
+table.led tr.flagged { background:var(--fail-bg); }
+.tier { font-family:var(--mono); font-size:11px; font-weight:500; padding:1px 6px; border-radius:3px; border:1px solid; }
+.tier.T1 { color:var(--t1); border-color:var(--fail-border); background:var(--fail-bg); }
+.tier.T2 { color:var(--t2); border-color:var(--high-border); background:var(--high-bg); }
+.tier.T3 { color:var(--t3); border-color:#2a4a8a; background:var(--accent-dim); }
+.tier.other { color:var(--text-dim); border-color:var(--border2); }
+.led-cls { font-family:var(--mono); font-size:12px; color:var(--text-muted); }
+.muted { color:var(--text-dim); }
+.led-sub { font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fail); margin:13px 0 7px; }
+
+/* Retention re-review flags (C2 MISSING / PINNED_IN_ROLLUP) */
+.retention-alert { border:1px solid var(--fail-border); background:var(--fail-bg); border-radius:var(--radius); margin-bottom:14px; }
+.retention-alert.rollup-only { border-color:var(--high-border); background:var(--high-bg); }
+.retention-alert .ra-hdr { padding:10px 15px 9px; font-family:var(--mono); font-size:12px; letter-spacing:0.04em; text-transform:uppercase; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.retention-alert .ra-title { color:var(--fail); }
+.retention-alert.rollup-only .ra-title { color:var(--high); }
+.retention-alert .ra-sub { font-family:var(--mono); font-size:11px; color:var(--text-dim); text-transform:none; letter-spacing:0; }
+.ra-body { padding:0 15px 13px; }
+.ra-note { color:var(--text-muted); font-size:13px; margin-bottom:9px; line-height:1.6; }
+.ra-issue { font-family:var(--mono); font-size:10px; padding:1px 6px; border-radius:3px; border:1px solid; letter-spacing:0.03em; }
+.ra-issue.missing { color:var(--fail); border-color:var(--fail-border); background:var(--fail-bg); }
+.ra-issue.rollup  { color:var(--high); border-color:var(--high-border); background:var(--high-bg); }
+
+/* Incoming review */
+.incoming-hdr { font-family:var(--mono); font-size:13px; color:var(--high); background:var(--high-bg); border:1px solid var(--high-border); border-radius:var(--radius); padding:9px 14px; margin-bottom:11px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.incoming-hdr .lbl { letter-spacing:0.05em; text-transform:uppercase; font-size:11px; }
+/* one resizable container -> both panes always equal height; drag the handle at
+   its bottom-right to shrink the panes and reveal more of the established record. */
+.two-pane { display:grid; grid-template-columns:1fr 1fr; gap:14px; height:340px; min-height:160px;
+            max-height:62vh; resize:vertical; overflow:hidden; }
+@media (max-width:900px){ .two-pane { grid-template-columns:1fr; height:560px; } }
+.pane { display:flex; flex-direction:column; min-width:0; min-height:0; }
+.pane-hdr { font-family:var(--mono); font-size:12px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px; flex-shrink:0; display:flex; align-items:center; gap:7px; }
+.pane-hdr .edit-dot { color:var(--accent); }
+textarea#edit { flex:1; min-height:0; width:100%; resize:none; background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.75; padding:13px 15px; }
+textarea#edit:focus { outline:none; border-color:var(--accent); }
+.editable-wrap { position:relative; display:flex; flex-direction:column; flex:1; min-height:0; }
+/* Every editable control in the review pane reads the same, on all three tabs:
+   lighter field + accent rail. !important because several inputs carry inline styles. */
+#content textarea, #content input[type=text], .ra-actions input[type=text] {
+  background:#232a3d !important; border:1px solid var(--border2) !important;
+  border-left:3px solid var(--accent) !important; color:var(--text) !important; }
+#content textarea:focus, #content input[type=text]:focus, .ra-actions input[type=text]:focus {
+  outline:none; border-color:var(--accent) !important; background:#26304a !important; }
+.editable-wrap .edit-tag { position:absolute; top:8px; right:10px; font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); opacity:.75; pointer-events:none; }
+textarea.editable { width:100%; background:#232a3d; border:1px solid var(--border2); border-left:3px solid var(--accent); border-radius:var(--radius); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.7; padding:13px 15px; }
+textarea.editable:focus { outline:none; border-color:var(--accent); background:#26304a; }
+.fail-stmt { background:var(--fail-bg); border:1px solid var(--fail-border); border-radius:var(--radius); padding:10px 12px; margin-bottom:8px; }
+.fail-stmt .stmt { color:var(--text); font-size:14px; line-height:1.6; }
+.fail-stmt .evid { color:var(--text-muted); font-family:var(--mono); font-size:12px; margin-top:6px; line-height:1.5; }
+.bhc-raw { flex:1; min-height:0; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-family:var(--mono); font-size:14px; line-height:1.65; padding:13px 15px; white-space:pre-wrap; }
+.bhc-raw::-webkit-scrollbar { width:5px; } .bhc-raw::-webkit-scrollbar-thumb { background:var(--border2); }
+
+/* Sign-off bar */
+#controls { flex-shrink:0; border-top:1px solid var(--border); background:var(--surface); padding:11px 18px; display:none; gap:11px; align-items:center; flex-wrap:wrap; }
+#controls.visible { display:flex; }
+#controls input[type=text] { background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-family:var(--sans); font-size:14px; padding:7px 11px; }
+#phys-name { width:190px; } #phys-notes { flex:1; min-width:200px; }
+#controls input:focus { outline:none; border-color:var(--accent); }
+.btn { font-family:var(--mono); font-size:13px; padding:8px 16px; border-radius:var(--radius); border:1px solid; cursor:pointer; }
+.btn-approve { color:var(--low); background:var(--low-bg); border-color:var(--low-border); }
+.btn-approve:hover { background:#0d2a1c; }
+.btn-edit { color:var(--high); background:var(--high-bg); border-color:var(--high-border); }
+.btn-edit:hover { background:#352508; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+#status-msg { font-size:13px; color:var(--text-muted); margin-left:4px; }
+#status-msg.ok { color:var(--low); } #status-msg.err { color:var(--fail); }
+.review-badge { font-family:var(--mono); font-size:12px; padding:2px 9px; border-radius:3px; border:1px solid; }
+.review-badge.pending { color:var(--high); background:var(--high-bg); border-color:var(--high-border); }
+.review-badge.approved { color:var(--low); background:var(--low-bg); border-color:var(--low-border); }
+
+.spinner { display:inline-block; width:13px; height:13px; border:2px solid var(--border2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; vertical-align:middle; }
+@keyframes spin { to { transform:rotate(360deg); } }
+/* ── Physician feedback (report this row) ─────────────────────────────────────
+   Deliberately quiet: a report control on every ledger row must not compete
+   with the approve/edit actions that are the physician's actual job. It sits at
+   low opacity until the row is hovered. */
+.rpt-btn { font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:3px;
+           border:1px solid var(--border2); color:var(--text-muted); background:none;
+           cursor:pointer; opacity:.35; transition:opacity .12s; }
+tr:hover .rpt-btn { opacity:1; }
+.rpt-btn:hover { color:var(--accent); border-color:var(--accent); }
+td.rpt-cell { white-space:nowrap; width:1%; }
+
+#fb-modal { position:fixed; inset:0; background:rgba(6,9,17,.72); display:none;
+            align-items:center; justify-content:center; z-index:50; }
+#fb-modal.open { display:flex; }
+#fb-box { background:var(--surface); border:1px solid var(--border2); border-radius:var(--radius);
+          width:min(620px,92vw); max-height:88vh; overflow-y:auto; padding:20px 22px; }
+#fb-box h3 { margin:0 0 4px; font-family:var(--mono); font-size:14px; letter-spacing:.05em;
+             text-transform:uppercase; color:var(--accent); }
+.fb-row { margin-bottom:13px; }
+.fb-row label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:5px; }
+.fb-quote { background:var(--surface2); border-left:3px solid var(--border2); border-radius:var(--radius);
+            padding:9px 12px; font-size:14px; line-height:1.55; color:var(--text); margin-bottom:14px; }
+.fb-quote .meta { font-family:var(--mono); font-size:11px; color:var(--text-muted); margin-top:5px; }
+#fb-box select, #fb-box textarea { width:100%; background:var(--surface2); border:1px solid var(--border2);
+            border-radius:var(--radius); color:var(--text); font-family:var(--sans); font-size:14px; padding:8px 11px; }
+#fb-box textarea { min-height:88px; line-height:1.6; resize:vertical; }
+#fb-box select:focus, #fb-box textarea:focus { outline:none; border-color:var(--accent); }
+.fb-check { display:flex; align-items:flex-start; gap:9px; font-size:13px; color:var(--text);
+            line-height:1.5; margin-bottom:9px; }
+.fb-check input { margin-top:3px; flex-shrink:0; }
+.fb-actions { display:flex; gap:10px; align-items:center; margin-top:16px; }
+#fb-status { font-size:13px; color:var(--text-muted); }
+#fb-status.ok { color:var(--low); } #fb-status.err { color:var(--fail); }
+.fb-note { font-size:12px; color:var(--text-muted); line-height:1.55; margin-top:12px;
+           border-top:1px solid var(--border); padding-top:11px; }
+.btn-ghost { color:var(--text-muted); background:none; border-color:var(--border2); }
+.btn-ghost:hover { color:var(--text); }
+.led-tools { margin-bottom:9px; }
+.led-tools .rpt-btn { opacity:.6; padding:4px 10px; }
+.led-tools .rpt-btn:hover { opacity:1; }
+
+:root { color-scheme: dark; }
+/* narrow screens only: stack the sidebar above the detail pane (the real UI targets a desktop browser) */
+@media (max-width: 760px) {
+  #layout { flex-direction: column; }
+  #sidebar { width: 100%; max-height: 30%; border-right: none; border-bottom: 1px solid var(--border); }
+  #hdr { height: auto; min-height: 50px; flex-wrap: wrap; padding: 8px 16px; }
+  #pt-header, #incoming-pane, #est-scroll, #controls { padding-left: 16px; padding-right: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <span class="logo">LongSum</span><span class="sep">/</span><span class="title">Tiered Review</span>
+  <div class="spacer"></div>
+  <span id="queue-count">0 pending</span>
+  <button id="btn-refresh" onclick="refreshAll()">&#8635; Refresh</button>
+</div>
+
+<div id="layout">
+  <div id="sidebar">
+    <div id="sidebar-tabs">
+      <button class="tab active" id="tab-discharge" onclick="switchTab('discharge')">Discharges <span class="tab-n" id="tab-n-discharge">0</span></button>
+      <button class="tab" id="tab-retention" onclick="switchTab('retention')" title="COMPLETENESS: Flags facts from older admissions that didn't survive summarization intact – missing, or reduced to just a recurrence count.">Completeness <span class="tab-n" id="tab-n-retention">0</span></button>
+      <button class="tab" id="tab-triage" onclick="switchTab('triage')" title="CONCERNS: Flags what the pipeline couldn't resolve on its own – unverifiable summary text, a failed auto-correction, or new admissions folded in under your edit.">Concerns <span class="tab-n" id="tab-n-triage">0</span></button>
+    </div>
+    <div id="queue-list"><div id="queue-empty">Loading&hellip;</div></div>
+  </div>
+
+  <div id="main">
+    <div id="placeholder"><div class="icon">&#9776;</div><p>Select a patient to review</p></div>
+
+    <div id="content">
+      <div id="pt-header">
+        <span id="pt-id"></span>
+        <div class="pt-meta">
+          <span id="pt-admissions"></span><span class="sep">|</span>
+          <span id="pt-dates"></span><span id="pt-service" class="svc-tag"></span>
+          <span id="pt-review" class="review-badge"></span>
+        </div>
+        <span id="tax-tag"></span>
+        <!-- Physician identity lives in the HEADER, not in #controls: TRIAGE concerns
+             and Tier 3 edits are reachable for patients with no pending discharge,
+             and #controls is only shown when there IS one. -->
+        <!-- Identity is a PICKER, not free text. A typo splits one defect into two
+             in the cross-patient repeat counter (U-5) and leaves a reply with
+             nowhere to go. Falls back to a text input if the roster cannot be
+             loaded - sign-off must not become unavailable because the support
+             database is down. -->
+        <select id="phys-name"
+               style="margin-left:auto;padding:6px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:13px;min-width:190px">
+          <option value="">Loading&hellip;</option>
+        </select>
+      </div>
+
+      <div id="concern-pane"></div>
+      <div id="incoming-pane"></div>
+      <div id="est-scroll"></div>
+
+      <div id="controls">
+        <input type="text" id="phys-notes" placeholder="Review notes (optional)">
+        <button class="btn btn-approve" id="btn-approve" onclick="submitReview()">Approve</button>
+        <span id="status-msg"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Report-this-row dialog. Markup only; everything in it is populated from
+     /tiered/feedback/symptoms so the picker cannot drift from the governed
+     policy file. -->
+<div id="fb-modal" onclick="if(event.target===this)fbClose()">
+  <div id="fb-box">
+    <h3 id="fb-title">Report this row</h3>
+    <div id="fb-quote" class="fb-quote"></div>
+
+    <!-- Identity lives in the dialog too, not only in the header. Forcing a
+         physician to cancel, set their name behind the modal, and start again is
+         the fastest way to stop them reporting at all. Selecting here writes
+         back to the header, so it is set once per session either way. -->
+    <div class="fb-row">
+      <label for="fb-phys">Reporting as</label>
+      <select id="fb-phys"></select>
+    </div>
+
+    <!-- Shown only for a missing-fact report, where there is no row to quote. -->
+    <div class="fb-row" id="fb-missing-row" style="display:none">
+      <label for="fb-miss-text">What should be in the record but isn't?</label>
+      <textarea id="fb-miss-text" style="min-height:44px"
+        placeholder="e.g. Penicillin allergy - anaphylaxis, from the 2024 admission"></textarea>
+      <label for="fb-miss-hadm" style="margin-top:9px">Which admission? (optional, if you know it)</label>
+      <input type="text" id="fb-miss-hadm" placeholder="hadm_id"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 11px">
+    </div>
+
+    <div class="fb-row">
+      <label for="fb-symptom">What is wrong with it?</label>
+      <select id="fb-symptom" onchange="fbSymptomChanged()"></select>
+    </div>
+
+    <div class="fb-row" id="fb-field-row" style="display:none">
+      <label for="fb-field">Which part is wrong?</label>
+      <select id="fb-field">
+        <option value="">- select -</option>
+        <option value="current_lifecycle">Status (active / resolved / superseded)</option>
+        <option value="salience_tier">Tier</option>
+        <option value="retention_class">Class</option>
+        <option value="certainty">Certainty</option>
+        <option value="negative_kind">Absent / resolved / surveillance marker</option>
+        <option value="onset_date">Onset date</option>
+        <option value="last_confirmed_date">Last confirmed date</option>
+        <option value="text">The wording of the fact itself</option>
+      </select>
+    </div>
+
+    <div class="fb-row">
+      <label for="fb-text">What should it say, and why?</label>
+      <textarea id="fb-text" placeholder="Describe what is wrong. This is the first thing the reviewer reads."></textarea>
+    </div>
+
+    <!-- Two questions of FACT, not a severity dial. Physicians asked to rate
+         urgency rate everything urgent; these are answerable yes or no. -->
+    <label class="fb-check"><input type="checkbox" id="fb-action">
+      A clinical decision was made, or nearly made, on this row.</label>
+    <label class="fb-check"><input type="checkbox" id="fb-others">
+      I have seen this on other patients.</label>
+
+    <div class="fb-actions">
+      <button class="btn btn-approve" id="fb-send" onclick="fbSubmit()">Send report</button>
+      <button class="btn btn-ghost" onclick="fbClose()">Cancel</button>
+      <span id="fb-status"></span>
+    </div>
+
+    <div class="fb-note">The patient, the row and the exact pipeline version are recorded
+      automatically &ndash; you do not need to note any of that. You will get a written answer
+      in every case, including &ldquo;working as designed&rdquo;. Fixes ship on the normal
+      release cycle, so if this matters for <em>this</em> patient now, correct the paragraph
+      as well as reporting the row.</div>
+  </div>
+</div>
+
+
+<script>
+/* STATIC MOCKUP LAYER. Everything below is injected by build_mock.py; the rest of this file is the
+   unmodified src/api/tiered_review.html. fetch() is stubbed to serve one SYNTHETIC patient. */
+(function () {
+  const DATA = {"queue": {"count": 1, "queue": [{"subject_id": 99990001, "n_total_admissions": 9, "incoming_hadm_id": 99010010, "incoming_seq": 10, "incoming_date": "2174-05-27", "incoming_service": "MED", "taxonomy_version": "retention_taxonomy.v2.12", "review_status": "pending_review", "n_nodes": 17, "n_flagged": 3, "n_retention": 4, "n_ret_missing": 2}]}, "patient": {"subject_id": 99990001, "n_total_admissions": 9, "first_date": "2171-03-04", "last_date": "2174-01-22", "current_hadm_id": 99010009, "current_seq": 9, "current_service": "MED", "tldr_md": "A man in his seventies with ischaemic cardiomyopathy and chronic heart failure, severe COPD, stage 4 chronic kidney disease, insulin-treated type 2 diabetes and atrial fibrillation had 9 admissions over nearly three years (2171-03 to 2174-01). The record opens with a limb-threatening diabetic foot infection that ended in a below-knee amputation, followed by a cardioembolic stroke, a ventricular fibrillation arrest treated with an ICD, and a major upper GI bleed on apixaban, with heart failure and COPD decompensations recurring roughly every four to six months in between. The trajectory is one of stepwise functional loss and rising comorbidity burden; he has chosen DNR/DNI with ICD therapy left active, and recent admissions have been uncomplicated and short.", "current_episode_md": "He was admitted with three days of worsening dyspnoea and orthopnoea and an episode of chest tightness, his third heart failure decompensation. Serial troponins were flat and the ECG unchanged, excluding acute coronary syndrome, and CT chest showed pulmonary oedema with the right upper lobe nodule unchanged at 8 mm. Creatinine peaked at 3.4 mg/dL from a baseline of 2.6 and improved with intravenous diuresis. Device interrogation again showed no therapies delivered. He was discharged euvolaemic on his existing regimen with heart failure clinic follow-up, and his DNR/DNI status with active ICD therapy was reaffirmed.", "prior_admissions_md": "Across two admissions between 2171-03 and 2171-09, the record opens with a surgical admission for a chronic right diabetic foot ulcer complicated by osteomyelitis, managed with intravenous antibiotics and a below-knee amputation; the post-operative course was complicated by a pulmonary embolism treated with anticoagulation, and he left for a rehabilitation facility to plan a prosthesis. Six months later he was admitted under neurology with an acute left-hemispheric stroke, during which telemetry showed new atrial fibrillation; anticoagulation was continued for the new indication and he moved to inpatient rehabilitation with right-sided weakness and difficulty producing speech. Glycaemic control was poor in both admissions (admission HbA1c above 9%) and creatinine sat at a chronically elevated baseline throughout.", "faithfulness": null, "prior_admissions_effective": "Across two admissions between 2171-03 and 2171-09, the record opens with a surgical admission for a chronic right diabetic foot ulcer complicated by osteomyelitis, managed with intravenous antibiotics and a below-knee amputation; the post-operative course was complicated by a pulmonary embolism treated with anticoagulation, and he left for a rehabilitation facility to plan a prosthesis. Six months later he was admitted under neurology with an acute left-hemispheric stroke, during which telemetry showed new atrial fibrillation; anticoagulation was continued for the new indication and he moved to inpatient rehabilitation with right-sided weakness and difficulty producing speech. Glycaemic control was poor in both admissions (admission HbA1c above 9%) and creatinine sat at a chronically elevated baseline throughout.", "prior_generated_md": "", "edited_prior_admissions_md": null, "prior_edited_by": null, "prior_edited_at": null, "prior_edit_version": 0, "prior_pinned": false, "prior_pinned_hadm_ids": [], "tldr_stale": false, "taxonomy_version": "retention_taxonomy.v2.12", "generated_at": "2174-05-28 03:12:00", "n_admissions": 9, "conditions_json": null, "incoming": {"hadm_id": 99010010, "admit_seq": 10, "admit_date": "2174-05-27", "service": "MED", "bhc_text": "Mr. ___ is a ___ year old man with ischemic cardiomyopathy (EF 30%, s/p ICD), COPD, CKD stage 4, insulin-requiring type 2 diabetes, atrial fibrillation on apixaban and prior left MCA stroke with right hemiparesis who presents with 3 days of worsening dyspnea, wheeze and productive cough. # COPD exacerbation: Presented with purulent sputum and hypoxia to 86% on room air, improved to 93% on 3 L nasal cannula. CXR showed hyperinflation with a possible right lower lobe opacity. He was started on prednisone 40 mg daily and scheduled albuterol/ipratropium nebulizers. Given his history of penicillin anaphylaxis he received doxycycline for 5 days instead of a beta-lactam. On hospital day 2 he became more somnolent with a pCO2 of 62 and was placed on BiPAP with improvement by the next morning, in keeping with his goals of care (DNR/DNI, NIV acceptable). # Possible CAP: Afebrile with a normal white count; the RLL opacity was felt more likely atelectasis and the doxycycline course was considered adequate. # HFrEF: Euvolemic on exam, continued home torsemide, carvedilol, hydralazine and isosorbide. No ICD therapies on interrogation. # CKD: Creatinine 2.7, at baseline. # Pulmonary nodule: Known 8 mm RUL nodule, repeat CT ___ unchanged. # MRSA: nares screen positive, contact precautions maintained. # DM: glucose elevated on steroids, glargine increased and sliding scale added. # AF: continued apixaban. # CODE: DNR/DNI, ICD to remain active, confirmed with patient. He was discharged home with visiting nurse services and pulmonary clinic follow-up in 2 weeks. ___ on Admission: Apixaban 5 mg PO BID Carvedilol 12.5 mg PO BID Torsemide 40 mg PO QD Hydralazine 25 mg PO TID Isosorbide dinitrate 20 mg PO TID Glargine 24 units QHS Tiotropium 18 mcg inhaled QD Pantoprazole 40 mg PO QD Discharge Medications: Prednisone 40 mg PO QD x 1 more day, Glargine 28 units QHS, otherwise unchanged. Discharge Diagnosis: COPD exacerbation.", "summary_md": "A man in his seventies with ischaemic cardiomyopathy and an ICD, severe COPD, stage 4 chronic kidney disease, insulin-treated type 2 diabetes, atrial fibrillation on apixaban and a prior stroke was admitted with a COPD exacerbation and a possible right lower lobe pneumonia. He needed 3 L of oxygen and was treated with prednisone, nebulised bronchodilators and five days of doxycycline, as beta-lactams are avoided because of penicillin anaphylaxis. On day 2 he developed hypercapnia that improved on BiPAP, in keeping with his DNR/DNI status with non-invasive ventilation acceptable.\n\nHeart failure stayed compensated on home torsemide, creatinine remained at baseline, and the known 8 mm right upper lobe nodule was unchanged on repeat CT. MRSA screening was positive and contact precautions were kept. Insulin was increased for steroid-related hyperglycaemia. He was discharged home with visiting nurse support and pulmonary clinic review in two weeks."}, "review": {"status": "pending_review", "reviewed_by": null, "reviewed_at": null, "edited_summary_md": null, "physician_notes": null, "approved_summary_md": null, "summary_version": 0, "folded_in_at": null}, "episodes": [{"hadm_id": 99010008, "admit_seq": 8, "admit_date": "2173-09-03", "service": "MED", "paragraph_md": "He was admitted with two days of melena and a haemoglobin of 6.9 g/dL, down from 11.2, while taking apixaban. Crossmatching was delayed by an anti-Kell red-cell alloantibody, and two units of Kell-negative red cells were transfused. Endoscopy found a 1.5 cm gastric ulcer with a visible vessel that was treated with clips, no varices, and a positive H. pylori test treated with a bismuth-based regimen that avoids penicillin. Apixaban was held for five days and resumed with a proton pump inhibitor; code status was reconfirmed as DNR/DNI.", "in_hot_window": true}, {"hadm_id": 99010007, "admit_seq": 7, "admit_date": "2173-05-14", "service": "MED", "paragraph_md": "He presented with a second COPD exacerbation, rhinovirus-positive on respiratory PCR, with oxygen saturation of 88% on room air. A non-contrast CT chest, obtained to look for pneumonia while avoiding contrast in stage 4 kidney disease, showed no consolidation but an incidental 8 mm solid right upper lobe nodule, for which repeat CT in six months was advised. He improved on prednisone and doxycycline and was back to baseline in five days. Admission MRSA screening was again positive, and the sleep study was still outstanding.", "in_hot_window": true}, {"hadm_id": 99010006, "admit_seq": 6, "admit_date": "2173-01-22", "service": "MED", "paragraph_md": "Readmitted with a second episode of decompensated heart failure after a week of missed diuretic doses and dietary salt excess. Creatinine rose from a baseline of 2.6 to 3.6 mg/dL and recovered to 2.8 with diuretic adjustment. Device interrogation showed no ventricular arrhythmia, and the chest radiograph showed pulmonary congestion only. He was discharged on torsemide in place of furosemide with nephrology referral to begin discussing renal replacement planning.", "in_hot_window": true}, {"hadm_id": 99010005, "admit_seq": 5, "admit_date": "2172-10-09", "service": "CMED", "paragraph_md": "He was found collapsed at home; a bystander started CPR and paramedics identified ventricular fibrillation, which was terminated after two shocks with return of spontaneous circulation. He was managed with targeted temperature management and extubated on day 2 without new neurological deficit. Coronary angiography showed a chronically occluded right coronary artery and diffuse multivessel disease not suitable for revascularisation, so a single-chamber ICD was implanted for secondary prevention; the generator is not MRI-conditional. Admission MRSA nares PCR was positive and contact precautions were applied. After a goals-of-care discussion he chose DNR/DNI while asking that ICD therapy remain active.", "in_hot_window": true}, {"hadm_id": 99010004, "admit_seq": 4, "admit_date": "2172-06-30", "service": "MED", "paragraph_md": "He was admitted with four days of increasing breathlessness, wheeze and purulent sputum on a background of a 50 pack-year smoking history, stopped two years earlier. Chest radiography showed hyperinflation without consolidation, and he was treated as a first documented COPD exacerbation with nebulised bronchodilators, five days of prednisone and doxycycline, avoiding beta-lactams because of his penicillin anaphylaxis. Snoring and daytime somnolence raised suspicion of obstructive sleep apnoea, and an outpatient sleep study was requested. He was discharged on a long-acting inhaler combination with pulmonary clinic follow-up.", "in_hot_window": true}, {"hadm_id": 99010003, "admit_seq": 3, "admit_date": "2172-02-11", "service": "CMED", "paragraph_md": "A man with insulin-treated type 2 diabetes, stage 4 chronic kidney disease and atrial fibrillation on apixaban was admitted with a week of worsening orthopnoea, leg swelling and a 4 kg weight gain. Echocardiography showed an ejection fraction of 30% with global hypokinesis, and troponin was mildly elevated but flat, giving a new diagnosis of ischaemic cardiomyopathy with acute decompensated heart failure. He diuresed well on intravenous furosemide, with creatinine rising modestly to 2.9 mg/dL before settling. An ACE inhibitor was withheld because he reported lip swelling on lisinopril years earlier; hydralazine with isosorbide dinitrate and carvedilol were started instead. He went home euvolaemic with cardiology follow-up and an outpatient coronary angiogram planned.", "in_hot_window": true}], "ledger": {"nodes": [{"retention_class": "infection_control_status", "salience_tier": "T1", "text": "MRSA colonisation (nares PCR positive; prior MRSA right foot osteomyelitis); contact precautions", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2171-03-04", "last_confirmed_date": "2173-05-14", "n_mentions": 3, "source_hadm_ids": [99010001, 99010005, 99010007], "fact_ids": ["d495d6d4aa10a657da2eb5141d6f658050de9e96", "fae512a25e3542a9a0fc371507a110958f9e37f8", "c8445f79950fbaf0535587e8bdd13a8c1cd204c6"]}, {"retention_class": "code_status_directive", "salience_tier": "T1", "text": "Code status DNR/DNI; ICD shock therapy to remain active at patient's request; ward-level ceiling of care, trial of NIV acceptable", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2172-10-09", "last_confirmed_date": "2174-01-16", "n_mentions": 3, "source_hadm_ids": [99010005, 99010008, 99010009], "fact_ids": ["b95eb237da3b67dfbb12e520367ef9a53c4d2c48", "3fb480818cf4f7b9b7b82b5f504622440082cb8d", "6a02b7e5b0c25e460b82d6dc7acd8590b1423f8a"]}, {"retention_class": "implanted_device", "salience_tier": "T1", "text": "Single-chamber ICD (2172-10) for secondary prevention after VF arrest; generator not MRI-conditional, MRI contraindicated", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2172-10-09", "last_confirmed_date": "2174-01-16", "n_mentions": 3, "source_hadm_ids": [99010005, 99010006, 99010009], "fact_ids": ["646ce2a8e5913d7c6884d658ae23ea87ad31e1cc", "ea7031a445d352311772a8e5bef602542a414a84", "4030c73c4a170c2f8e19c1f17a60d1e66d48cc80"]}, {"retention_class": "severe_adr_allergy", "salience_tier": "T1", "text": "Anaphylaxis to penicillin (urticaria and hypotension); beta-lactams avoided", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": null, "last_confirmed_date": "2173-09-03", "n_mentions": 3, "source_hadm_ids": [99010001, 99010004, 99010008], "fact_ids": ["23dba2df738faa4622a272cb78783fa07b91dcb4", "7b33d84080c7c5a08c6befcf83dbcf190cb6f0bf", "13327157a3db43d18ab29068ea124cbef706cee7"]}, {"retention_class": "sentinel_event", "salience_tier": "T2", "text": "Provoked pulmonary embolism after below-knee amputation, treated with anticoagulation", "certainty": "confirmed", "current_lifecycle": "resolved", "negative_kind": "resolved_relevant", "provisional": false, "onset_date": "2171-03-04", "last_confirmed_date": "2171-09-20", "n_mentions": 2, "source_hadm_ids": [99010001, 99010002], "fact_ids": ["c927fe33ca53590937b25f5bda0fd1687aac9b37", "0f4027daa8e2c6586bc4e24b1e88888b105586a0"]}, {"retention_class": "anatomy_altering_surgery", "salience_tier": "T2", "text": "Right below-knee amputation for MRSA diabetic foot osteomyelitis", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2171-03-04", "last_confirmed_date": "2173-09-03", "n_mentions": 4, "source_hadm_ids": [99010001, 99010002, 99010003, 99010008], "fact_ids": ["482b44eea772601e009236ef9f2ced17f386c2ee", "dbc6e4fe7f1f3a4fcfcf169d078c436758271599", "4f36eb1c77774cffe7a6e5190f1b59582dafa497", "89c35c392e54d45d05b00495035877477d895772"]}, {"retention_class": "sentinel_event", "salience_tier": "T2", "text": "Acute left MCA ischaemic stroke, cardioembolic in the setting of new atrial fibrillation", "certainty": "confirmed", "current_lifecycle": "resolved", "negative_kind": null, "provisional": false, "onset_date": "2171-09-20", "last_confirmed_date": "2172-10-09", "n_mentions": 3, "source_hadm_ids": [99010002, 99010003, 99010005], "fact_ids": ["9a2062b2d87fb20bc97daf54d191dfabab8da7a4", "aab84e3b315b635181a52d0537e5952bc6909a3f", "387d1764d8551b3752ea6e18a42273bda6ab9be4"]}, {"retention_class": "permanent_condition", "salience_tier": "T2", "text": "Post-stroke right hemiparesis and expressive aphasia", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2171-09-20", "last_confirmed_date": "2174-01-16", "n_mentions": 6, "source_hadm_ids": [99010002, 99010003, 99010004, 99010006, 99010008, 99010009], "fact_ids": ["559bd7512b6c456b3aab617b41087292621f4839", "17f9b3a0dbbfb02bff5c1a59a6dba07da553ae69", "d63dc0e7c22e7a3ed5709b4a8aaa1a0c6d4c6d4b", "2735e9ec06ebc5bad9c065ceae8e3cd5c491abc6", "aaa575ba67ab0a50fdfe0724ff94fa7d4e3726cc", "21cb2ae624b38b2cc10ec9951c4aed0860e8bc71"]}, {"retention_class": "sentinel_event", "salience_tier": "T2", "text": "Out-of-hospital ventricular fibrillation cardiac arrest, return of circulation after two shocks", "certainty": "confirmed", "current_lifecycle": "resolved", "negative_kind": null, "provisional": false, "onset_date": "2172-10-09", "last_confirmed_date": "2174-01-16", "n_mentions": 3, "source_hadm_ids": [99010005, 99010006, 99010009], "fact_ids": ["d2934abe4b667624e4643931be45f3f6ce598feb", "2e503267b57a462b5c8f1bf85fd4906ea4d4a9bd", "e1d32cea1196a0c910e4222aa47d4ab7f2213922"]}, {"retention_class": "sentinel_event", "salience_tier": "T2", "text": "Major upper GI haemorrhage on apixaban from gastric ulcer with visible vessel; haemoglobin 6.9 g/dL, 2 units red cells", "certainty": "confirmed", "current_lifecycle": "resolved", "negative_kind": null, "provisional": false, "onset_date": "2173-09-03", "last_confirmed_date": "2174-01-16", "n_mentions": 2, "source_hadm_ids": [99010008, 99010009], "fact_ids": ["b300ad0800a3c5596435f8ff4f5342565245b728", "c34880210b1251b5f6910d3db5e7785b3f6d75bc"]}, {"retention_class": "transfusion_obstetric_history", "salience_tier": "T2", "text": "Anti-Kell red-cell alloantibody; Kell-negative crossmatched units required", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2173-09-03", "last_confirmed_date": "2174-01-16", "n_mentions": 2, "source_hadm_ids": [99010008, 99010009], "fact_ids": ["bb56ca129209a39b59645d40c9dcd454d309dd4c", "4bb661a958f304fd23e2fcd41b9449e4ad72f7fd"]}, {"retention_class": "chronic_disease_state", "salience_tier": "T3", "text": "Type 2 diabetes mellitus, insulin-treated, with nephropathy and prior diabetic foot osteomyelitis", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2171-03-04", "last_confirmed_date": "2173-09-03", "n_mentions": 5, "source_hadm_ids": [99010001, 99010002, 99010003, 99010006, 99010008], "fact_ids": ["eab87775177615b4111b2f909f9bdc129bfb09cc", "de4d20d68d5556a0c0bc4bafe02ecfb2e1e82221", "1a9f958a3ddfdc0d6d6d9dcc0944539adf32f832", "70f807f1c1a0124e127539d5be15bbc1f8951f91", "248753807648ab50e600a4ddc2229d598cfd5769"]}, {"retention_class": "chronic_disease_state", "salience_tier": "T3", "text": "Chronic kidney disease stage 4, baseline creatinine 2.4 to 2.8 mg/dL", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2171-03-04", "last_confirmed_date": "2174-01-16", "n_mentions": 5, "source_hadm_ids": [99010001, 99010002, 99010003, 99010006, 99010009], "fact_ids": ["b8dba74fe7f6fc63b7fd176c776aa234ef2402d2", "cac159a58d5471165003edec0852dbacf265da94", "24c72a00ec094fb1238c496b47e6c2e4943e418e", "a2d07e620f0ea3c25fdc8d2c160d8d16be66e137", "ac491a23bbf1241018f94814fdabe2fb691e67ee"]}, {"retention_class": "chronic_disease_state", "salience_tier": "T3", "text": "Atrial fibrillation, anticoagulated with apixaban", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2171-09-20", "last_confirmed_date": "2174-01-16", "n_mentions": 5, "source_hadm_ids": [99010002, 99010003, 99010005, 99010008, 99010009], "fact_ids": ["3efce438593c907181ddc78d979fcdc7278c6e98", "c260d7a87954fbbfbb55fa5e5bf1db836b6ff3e6", "bff097be77965ec578c8a14bc410770d5499f542", "771c9cb0c0d969637de35f04143e175f31e4044f", "d71d7ce50a37db6aa8444df2c0c120bde0eea41e"]}, {"retention_class": "chronic_disease_state", "salience_tier": "T3", "text": "Ischaemic cardiomyopathy with chronic heart failure with reduced ejection fraction (EF 30%)", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2172-02-11", "last_confirmed_date": "2174-01-16", "n_mentions": 5, "source_hadm_ids": [99010003, 99010005, 99010006, 99010008, 99010009], "fact_ids": ["427d7d238284bbdc0c8cb5b14293a5151d0d87e2", "3bc47941435a89cc0086e372b782601e534d3ef9", "449d098b379a0310acbe35e15a12da5e0975f28b", "f3f35feec928c5a061783f591f17682820bcfc55", "dad368779c9a714ea9aa90e6bc13832b478f25fb"]}, {"retention_class": "chronic_disease_state", "salience_tier": "T3", "text": "COPD, severe airflow obstruction (GOLD 3), former 50 pack-year smoker", "certainty": "confirmed", "current_lifecycle": "active", "negative_kind": null, "provisional": false, "onset_date": "2172-06-30", "last_confirmed_date": "2174-01-16", "n_mentions": 4, "source_hadm_ids": [99010004, 99010005, 99010007, 99010009], "fact_ids": ["982c32e454d9dccb57a691df96d384769dffe70c", "ebaad8d24ed6625d069295bbf1d115f17b33956a", "f1f9a9ebe5a8e2ae6adf627c2ab07274932ef98f", "3c46b0a4031d3250dd6ab42e4948d68a49ae3329"]}, {"retention_class": "transient_event", "salience_tier": "T5", "text": "Acute coronary syndrome excluded 2174-01 (serial troponins flat, ECG unchanged)", "certainty": "confirmed", "current_lifecycle": "resolved", "negative_kind": "absent_or_negative", "provisional": false, "onset_date": "2174-01-16", "last_confirmed_date": "2174-01-16", "n_mentions": 1, "source_hadm_ids": [99010009], "fact_ids": ["4228cfbab891b11cef1a60ca6091dab020e528b0"]}], "flagged": [{"retention_class": "severe_adr_allergy", "salience_tier": "T1", "text": "Patient-reported lip and tongue swelling on lisinopril; no record available, ACE inhibitors avoided", "certainty": "patient_reported", "current_lifecycle": "active", "negative_kind": null, "provisional": true, "onset_date": "2172-02-11", "last_confirmed_date": "2172-02-11", "n_mentions": 1, "source_hadm_ids": [99010003], "fact_ids": ["40fa83e789c8e9f562c893b448ebcff4042c74a1"]}, {"retention_class": "chronic_disease_state", "salience_tier": "T3", "text": "Suspected obstructive sleep apnoea (snoring, daytime somnolence); sleep study not yet done", "certainty": "suspected", "current_lifecycle": "active", "negative_kind": null, "provisional": true, "onset_date": "2172-06-30", "last_confirmed_date": "2173-05-14", "n_mentions": 2, "source_hadm_ids": [99010004, 99010007], "fact_ids": ["598fd51007d3d187191fa50e2f9503d8f1ef4d3d", "dda05f921a32f61ec3b1423d5184015a69db1a72"]}, {"retention_class": "transient_event", "salience_tier": "T5", "text": "Incidental 8 mm solid right upper lobe nodule on CT chest, unchanged at 8 months; repeat imaging due", "certainty": "suspected", "current_lifecycle": "active", "negative_kind": "surveillance", "provisional": true, "onset_date": "2173-05-14", "last_confirmed_date": "2174-01-16", "n_mentions": 2, "source_hadm_ids": [99010007, 99010009], "fact_ids": ["c62fdb0fe8c10d4f51e3cb415c016c36fb7dc27c", "67d258d8efcf5c0a5d51b98ddec555e8503ded41"]}]}, "retention_flags": [{"id": 101, "issue": "MISSING", "salience_tier": "T1", "retention_class": "severe_adr_allergy", "certainty": "confirmed", "fact_text": "Facial swelling and diffuse rash on trimethoprim-sulfamethoxazole; sulfonamide antibiotics avoided", "source_hadm_id": 99010001, "recall": 0.88, "n_missing": 2, "n_pinned_in_rollup": 2, "checked_at": "2174-05-28 03:40:00"}, {"id": 102, "issue": "MISSING", "salience_tier": "T3", "retention_class": "chronic_disease_state", "certainty": "confirmed", "fact_text": "Peripheral arterial disease with absent left pedal pulses and claudication", "source_hadm_id": 99010001, "recall": 0.88, "n_missing": 2, "n_pinned_in_rollup": 2, "checked_at": "2174-05-28 03:40:00"}, {"id": 103, "issue": "ROLLUP", "salience_tier": "T2", "retention_class": "sentinel_event", "certainty": "confirmed", "fact_text": "Stump wound dehiscence requiring return to theatre", "source_hadm_id": 99010001, "recall": 0.88, "n_missing": 2, "n_pinned_in_rollup": 2, "checked_at": "2174-05-28 03:40:00"}, {"id": 104, "issue": "ROLLUP", "salience_tier": "T2", "retention_class": "sentinel_event", "certainty": "confirmed", "fact_text": "Severe hypoglycaemia with loss of consciousness requiring paramedic attendance", "source_hadm_id": 99010002, "recall": 0.88, "n_missing": 2, "n_pinned_in_rollup": 2, "checked_at": "2174-05-28 03:40:00"}]}, "retention_queue": {"count": 1, "visibility_gaps": [], "queue": [{"subject_id": 99990001, "n_retention": 4, "n_ret_missing": 2, "recall": 0.88, "last_checked": "2174-05-28 03:40:00", "n_total_admissions": 9, "last_date": "2174-01-22", "current_service": "MED"}]}, "physicians": {"physicians": [{"id": 1, "name": "Dr Tan Wei Ming", "role": "clinician"}, {"id": 2, "name": "Dr Priya Nair", "role": "clinician"}]}, "symptoms": {"symptoms": [{"id": "S1", "label": "A fact is missing that should be there", "owner_roles": []}, {"id": "S2", "label": "Something is stated that is not in the notes", "owner_roles": []}, {"id": "S3", "label": "A fact is labelled wrongly (tier, class, certainty, or status)", "owner_roles": []}, {"id": "S4", "label": "A fact reads as the opposite of the truth (absent / resolved / surveillance)", "owner_roles": []}, {"id": "S5", "label": "Two conditions are merged into one row, or one condition is split across rows", "owner_roles": []}, {"id": "S6", "label": "A rollup is too coarse - I need the individual episodes", "owner_roles": []}, {"id": "S7", "label": "A date is wrong, or rows are in the wrong order", "owner_roles": []}, {"id": "S9", "label": "The paragraph and the ledger disagree", "owner_roles": []}, {"id": "S10", "label": "Something is displayed wrongly or is unreadable", "owner_roles": []}, {"id": "S11", "label": "This does not belong to this patient", "owner_roles": []}, {"id": "S12", "label": "This is working as intended, and the intent is wrong", "owner_roles": []}, {"id": "S99", "label": "Not sure - something is wrong with this row", "owner_roles": []}]}};
+  const reply = (obj, status) => Promise.resolve(new Response(JSON.stringify(obj),
+      { status: status || 200, headers: { 'Content-Type': 'application/json' } }));
+  window.fetch = function (url, opts) {
+    const u = String(url).split('?')[0];
+    const method = ((opts && opts.method) || 'GET').toUpperCase();
+    if (method !== 'GET') {
+      if (u === '/tiered/feedback/report')
+        return reply({ feedback_id: 0, message: 'Static mockup: this report was not sent.' });
+      return reply({ detail: 'Static mockup: no server is attached, so nothing was saved.' }, 503);
+    }
+    if (u === '/tiered/review/queue') return reply(DATA.queue);
+    if (u === '/tiered/review/retention-queue') return reply(DATA.retention_queue);
+    if (u === '/tiered/review-queue') return reply({ count: 0, items: [] });
+    if (u === '/tiered/feedback/physicians') return reply(DATA.physicians);
+    if (u === '/tiered/feedback/symptoms') return reply(DATA.symptoms);
+    if (u.indexOf('/tiered/review/patient/') === 0) return reply(DATA.patient);
+    return reply({ detail: 'Not found in static mockup' }, 404);
+  };
+})();
+</script>
+
+<script>
+let queue = [], retQueue = [], triQueue = [], current = null, currentTab = 'discharge';
+let currentConcern = null;   // review_queue item being triaged, if any
+let retGaps = [];            // subjects whose c2 losses never reached retention_review
+let priorOriginal  = '';     // Tier 3 text as rendered, to detect a real edit
+refreshAll();
+
+async function refreshAll() { await loadQueue(); await loadRetentionQueue(); await loadTriageQueue(); renderActiveTab(); }
+function renderActiveTab() {
+  if (currentTab === 'retention') return renderRetentionQueue();
+  if (currentTab === 'triage')    return renderTriageQueue();
+  return renderQueue();
+}
+function switchTab(tab) {
+  currentTab = tab;
+  ['discharge','retention','triage'].forEach(t =>
+    document.getElementById('tab-'+t).classList.toggle('active', tab === t));
+  renderActiveTab();
+}
+
+// ---- TRIAGE: pipeline-flagged concerns (C5 review_queue) ----------------------
+// Distinct from DISCHARGES (summaries awaiting approval) and RETENTION (fact-level
+// losses). These are the pipeline flagging its OWN output as possibly wrong.
+async function loadTriageQueue() {
+  try {
+    const r = await fetch('/tiered/review-queue?status=pending');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    triQueue = (await r.json()).items || [];
+  } catch (e) {
+    triQueue = [];
+    if (currentTab === 'triage')
+      document.getElementById('queue-list').innerHTML =
+        `<div id="queue-empty" style="color:var(--fail)">Error: ${e.message}</div>`;
+  }
+  document.getElementById('tab-n-triage').textContent = triQueue.length;
+  document.getElementById('tab-triage').classList.toggle('has-loss',
+    triQueue.some(i => i.severity === 'high' || i.severity === 'fail'));
+}
+
+const CONCERN_LABEL = {
+  faithfulness_validator: 'unsupported claim',
+  compactor:              'compaction unfixed',
+  retention_extractor:    'truncated extraction',
+  episode_paragrapher:    'empty episode text',
+  single_summary:         'empty summary',
+  prior_span_drift:       'pinned edit out of date'
+};
+
+function renderTriageQueue() {
+  const el = document.getElementById('queue-list');
+  if (!triQueue.length) { el.innerHTML = '<div id="queue-empty">Nothing to triage &#10003;</div>'; return; }
+  el.innerHTML = triQueue.map(it => {
+    const active = currentConcern && currentConcern.review_id === it.review_id ? ' active' : '';
+    const hi  = (it.severity === 'high' || it.severity === 'fail');
+    const lbl = CONCERN_LABEL[it.source_role] || it.source_role;
+    const when = it.queued_at ? String(it.queued_at).slice(0,10) : '';
+    return `<div class="q-item${active}${hi ? ' has-loss' : ''}" onclick="selectConcern('${it.review_id}')">
+      <div class="q-row1"><span class="q-sid">${it.subject_id}</span>${when ? `<span style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--text-muted)">${when}</span>` : ''}</div>
+      <div class="q-row2">${esc(lbl)}</div>
+      <div class="q-counts"><span class="chip ${hi ? 'flag' : 'pending'}">${esc(it.severity || '')}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// Opening a concern loads the patient too, so the physician sees the flagged text in
+// full context (ledger, compacted prose, source BHC) rather than adjudicating blind.
+async function selectConcern(reviewId) {
+  currentConcern = triQueue.find(i => i.review_id === reviewId) || null;
+  if (!currentConcern) return;
+  await selectPatient(currentConcern.subject_id);
+  renderTriageQueue();
+}
+
+// Quote the judge's actual objections. "Contains unsupported claims" is unactionable;
+// the statement plus the checker's reasoning is what a physician can rule on.
+function failedStatementsHtml(it) {
+  if (!current || !current.faithfulness) return '';
+  const f = current.faithfulness;
+  if (it.source_role !== 'faithfulness_validator' && it.source_role !== 'compactor') return '';
+  const fs = f.failed_statements || [];
+  if (!fs.length) return '';
+  const hdr = `<div class="ra-sub" style="padding:0 0 8px">Unmatched statements (${fs.length} of ${f.n_total})
+${f.judge_degraded ? ' &middot; checker ran degraded' : ''}</div>`;
+  return hdr + fs.map(s => `<div class="fail-stmt"><div class="stmt">&ldquo;${esc(s.statement)}&rdquo;</div>
+<div class="evid">Checker: ${esc(s.evidence)}</div></div>`).join('');
+}
+
+// inline=true renders the editor inside the TRIAGE concern pane (no scrolling);
+// inline=false renders it in its own Established-record section.
+function priorEditorHtml(p, inline) {
+  if (!p) return '';
+  const priorRaw = (p.prior_admissions_effective || p.prior_admissions_md || '');
+  // Label the two-region separator in the editor so it matches the concern copy
+  // ("Added since your review"). savePrior() strips the label back to the canonical
+  // marker before persisting, so it never leaks into the frozen prefix.
+  const priorEff = priorRaw.replace('\n\n---\n\n', '\n\n--- Added since your review ---\n\n');
+  priorOriginal = priorEff;
+  if (!priorEff.trim()) return '';
+  const pinned = p.prior_pinned;
+  const meta = pinned
+    ? `<div class="ra-sub" style="padding:0 0 8px">Physician-edited v${p.prior_edit_version} by ${esc(p.prior_edited_by||'')} on ${(p.prior_edited_at||'').slice(0,10)} &middot; span pinned${p.tldr_stale ? ' &middot; TL;DR stale' : ''}</div>`
+    : '';
+  const orig = (pinned && (p.prior_admissions_md||'').trim())
+    ? `<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--text-dim);text-transform:uppercase">Generated original (superseded)</summary><div class="card md" style="margin-top:8px;opacity:.7">${md(p.prior_admissions_md)}</div></details>`
+    : '';
+  const lbl = inline ? `<div class="ra-sub" style="padding:6px 0 8px">Prior admissions (compacted) &ndash; edit here to correct it</div>` : '';
+  return `${lbl}${meta}<div class="editable-wrap"><span class="edit-tag">editable</span>
+    <textarea id="prior-edit" class="editable" spellcheck="false" style="min-height:200px">${esc(priorEff)}</textarea></div>
+    ${inline ? `<div class="ra-sub" style="padding:8px 0 0">Your edit is saved when you press <b>Resolve</b> below.</div>` : `<div style="margin-top:8px;display:flex;align-items:center;gap:10px">
+      <button class="btn" onclick="savePrior()">Save &amp; pin</button>
+      <span id="prior-msg" style="font-family:var(--mono);font-size:12px"></span>
+    </div>`}${orig}`;
+}
+
+function renderConcern() {
+  const el = document.getElementById('concern-pane');
+  if (!el) return;
+  if (!currentConcern || !current || currentConcern.subject_id !== current.subject_id) { el.innerHTML = ''; return; }
+  const it = currentConcern;
+  const hi = (it.severity === 'high' || it.severity === 'fail');
+  el.innerHTML = `
+    <div class="retention-alert${hi ? '' : ' rollup-only'}" style="margin-bottom:14px">
+      <div class="ra-hdr">
+        <span class="ra-title">Flagged &ndash; ${esc(CONCERN_LABEL[it.source_role] || it.source_role)}</span>
+        <span class="ra-sub">${esc(it.severity || '')} &middot; ${esc(it.source_role || '')} &middot; queued ${it.queued_at ? String(it.queued_at).slice(0,10) : ''}</span>
+      </div>
+      <div style="padding:0 15px 12px">
+        <div class="md" style="margin-bottom:10px">${esc(it.reason || '')}</div>
+        <div class="md" style="padding:0 0 10px;line-height:1.55">These checks are deliberately cautious &ndash; the pipeline would rather raise a concern than let one through, so a fair proportion turn out to be false alarms. Dismissing one is a normal outcome, not a failure.</div>
+        ${failedStatementsHtml(it)}
+        ${priorEditorHtml(current, true)}
+        <input type="text" id="concern-notes" placeholder="Notes (required to resolve)"
+               style="width:100%;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:14px">
+        <button class="btn" onclick="decideConcern('dismissed')">Dismiss &ndash; false alarm</button>
+        <button class="btn btn-approve" onclick="decideConcern('resolved')">Resolve</button>
+        <span id="concern-msg" style="margin-left:10px;font-family:var(--mono);font-size:12px"></span>
+      </div>
+    </div>`;
+}
+
+async function decideConcern(decision) {
+  if (!currentConcern) return;
+  const who   = (document.getElementById('phys-name') || {}).value || '';
+  const notes = (document.getElementById('concern-notes') || {}).value || '';
+  const msg   = document.getElementById('concern-msg');
+  if (!who.trim())  { msg.textContent = 'Enter your name (top right) first.'; msg.style.color = 'var(--fail)'; return; }
+  if (decision === 'resolved' && !notes.trim()) {
+    msg.textContent = 'Notes are required to resolve.'; msg.style.color = 'var(--fail)'; return;
+  }
+  // The concern pane offers exactly two outcomes, so a separate "Save & pin" there
+  // would be a third, redundant one. Resolve carries the edit; Dismiss discards it.
+  const ta = document.getElementById('prior-edit');
+  const changed = ta && ta.value.trim() !== (priorOriginal || '').trim();
+  if (decision === 'dismissed' && changed &&
+      !confirm('You edited the prior-admissions paragraph but chose Dismiss.\n\nDismiss means the flag was a false alarm, so the edit will NOT be saved.\n\nContinue?')) return;
+  msg.textContent = 'Saving...'; msg.style.color = 'var(--text-muted)';
+  if (decision === 'resolved' && changed) {
+    const okSave = await savePrior(true);
+    if (!okSave) { msg.textContent = 'Could not save the edit -- not resolved.'; msg.style.color = 'var(--fail)'; return; }
+  }
+  try {
+    const r = await fetch('/tiered/review-queue/resolve', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ review_id: currentConcern.review_id, physician_name: who.trim(),
+                             decision: decision, notes: notes.trim() })
+    });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+    const sid = currentConcern.subject_id;
+    currentConcern = null;
+    await loadTriageQueue(); renderTriageQueue();
+    await selectPatient(sid);        // re-renders detail (picks up a saved edit) + clears the pane
+  } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--fail)'; }
+}
+
+// ---- Compacted tier (Tier 3) physician edit ----------------------------------
+async function savePrior(quiet) {
+  if (!current) return false;
+  const who  = (document.getElementById('phys-name') || {}).value || '';
+  const text = ((document.getElementById('prior-edit') || {}).value || '')
+    .replace(/---\s*Added since your review\s*---/g, '---');   // strip display-only separator label
+  const msg  = document.getElementById('prior-msg');
+  // The concern pane has no prior-msg span (Resolve reports instead), so all status
+  // writes go through this null-safe helper. Returns true/false so Resolve can abort.
+  const say = (t, col) => { if (msg) { msg.textContent = t; msg.style.color = col; } };
+  if (!who.trim())  { say('Enter your name (top right) first.', 'var(--fail)'); return false; }
+  if (!text.trim()) { say('Paragraph is empty.', 'var(--fail)'); return false; }
+  say('Saving...', 'var(--text-muted)');
+  try {
+    const r = await fetch(`/tiered/review/patient/${current.subject_id}/prior-admissions`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ physician_name: who.trim(), edited_prior_admissions_md: text,
+                             review_id: currentConcern ? currentConcern.review_id : null })
+    });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+    say(`Saved and pinned (v${d.prior_edit_version}).`, 'var(--text-muted)');
+    if (!quiet) await selectPatient(current.subject_id);
+    return true;
+  } catch (e) { say(e.message, 'var(--fail)'); return false; }
+}
+
+async function loadQueue() {
+  try {
+    const r = await fetch('/tiered/review/queue');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    queue = (await r.json()).queue || [];
+  } catch (e) {
+    queue = [];
+    if (currentTab === 'discharge')
+      document.getElementById('queue-list').innerHTML =
+        `<div id="queue-empty" style="color:var(--fail)">Error: ${e.message}</div>`;
+  }
+  document.getElementById('tab-n-discharge').textContent = queue.length;
+  document.getElementById('queue-count').textContent =
+    queue.length === 1 ? '1 pending' : `${queue.length} pending`;
+}
+
+async function loadRetentionQueue() {
+  try {
+    const r = await fetch('/tiered/review/retention-queue');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const rd = await r.json();
+    retQueue = rd.queue || [];
+    retGaps  = rd.visibility_gaps || [];
+  } catch (e) {
+    retQueue = [];
+    if (currentTab === 'retention')
+      document.getElementById('queue-list').innerHTML =
+        `<div id="queue-empty" style="color:var(--fail)">Error: ${e.message}</div>`;
+  }
+  const nMiss = retQueue.reduce((a, q) => a + (q.n_ret_missing || 0), 0);
+  document.getElementById('tab-n-retention').textContent = retQueue.length;
+  document.getElementById('tab-retention').classList.toggle('has-loss', nMiss > 0);
+}
+
+function renderRetentionQueue() {
+  const el = document.getElementById('queue-list');
+  // A visibility gap means c2 FOUND losses that never reached this tab -- "no flags
+  // outstanding" would be a lie. Show it above the list, and instead of the empty state.
+  const gapBanner = retGaps.length ? `<div class="q-item has-loss" style="cursor:default">
+      <div class="q-row1"><span class="q-sid">&#9888; ${retGaps.length} patient(s) not shown</span></div>
+      <div class="q-row2">c2 recorded losses that never reached this tab &ndash; re-run
+        db_persist_retention.py for ${retGaps.map(g=>g.subject_id).join(', ')}</div></div>` : '';
+  if (!retQueue.length) { el.innerHTML = gapBanner + (gapBanner ? '' : '<div id="queue-empty">No retention flags outstanding &#10003;</div>'); return; }
+  el.innerHTML = gapBanner + retQueue.map(q => {
+    const active = current && current.subject_id === q.subject_id ? ' active' : '';
+    const hasLoss = q.n_ret_missing > 0;
+    const when = q.last_checked ? q.last_checked.slice(0,10) : '';
+    const rollN = (q.n_retention || 0) - (q.n_ret_missing || 0);
+    const missChip = hasLoss ? `<span class="chip flag">${q.n_ret_missing} loss</span>` : '';
+    const rollChip = rollN > 0 ? `<span class="chip pending">${rollN} rollup</span>` : '';
+    const recall = (q.recall != null) ? `recall ${q.recall.toFixed(2)}` : '';
+    return `<div class="q-item${active}${hasLoss ? ' has-loss' : ''}" onclick="selectPatient(${q.subject_id})">
+      <div class="q-row1"><span class="q-sid">${q.subject_id}</span>${when ? `<span style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--text-muted)">${when}</span>` : ''}</div>
+      <div class="q-row2">retention re-review${recall ? ' &middot; ' + recall : ''}${q.n_total_admissions ? ' &middot; ' + q.n_total_admissions + ' adm' : ''}</div>
+      <div class="q-counts">${missChip}${rollChip}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderQueue() {
+  const el = document.getElementById('queue-list');
+  if (!queue.length) { el.innerHTML = '<div id="queue-empty">No discharges pending review &#10003;</div>'; return; }
+  el.innerHTML = queue.map(q => {
+    const hasLoss = q.n_ret_missing > 0;
+    const active = current && current.subject_id === q.subject_id ? ' active' : '';
+    const dt = q.incoming_date ? q.incoming_date.slice(0,10) : '';
+    const svc = q.incoming_service || '';
+    const flagChip = q.n_flagged ? `<span class="chip flag">${q.n_flagged} flag</span>` : '';
+    let retChip = '';
+    if (hasLoss) retChip = `<span class="chip flag" title="pinned facts missing from the ledger">${q.n_ret_missing} loss</span>`;
+    else if (q.n_retention) retChip = `<span class="chip pending" title="sentinel events filed only as a rollup count">${q.n_retention} rollup</span>`;
+    return `<div class="q-item${active}${hasLoss ? ' has-loss' : ''}" onclick="selectPatient(${q.subject_id})">
+      <div class="q-row1"><span class="q-sid">${q.subject_id}</span>${dt ? `<span style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--text-muted)">${dt}</span>` : ''}</div>
+      <div class="q-row2">discharge${svc ? ' &middot; ' + esc(svc) : ''}${q.n_total_admissions ? ' &middot; ' + q.n_total_admissions + ' adm total' : ''}</div>
+      <div class="q-counts">${retChip}<span class="chip node">${q.n_nodes} ledger</span>${flagChip}</div>
+    </div>`;
+  }).join('');
+}
+
+async function selectPatient(subjectId) {
+  // Reset the report-row registry before anything re-renders. Indices baked into
+  // the previous patient's markup are dead the moment this runs, and letting the
+  // array grow across a review session would eventually point a report at
+  // another patient's row.
+  fbRows = [];
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('content').classList.add('visible');
+  document.getElementById('pt-id').innerHTML =
+    `Patient <span style="font-family:var(--mono)">${subjectId}</span> <span class="spinner"></span>`;
+  document.getElementById('incoming-pane').innerHTML = '';
+  document.getElementById('concern-pane').innerHTML = '';
+  document.getElementById('est-scroll').innerHTML = '';
+  document.getElementById('controls').classList.remove('visible');
+  setStatus('', '');
+  try {
+    const r = await fetch(`/tiered/review/patient/${subjectId}`);
+    if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.detail || `HTTP ${r.status}`); }
+    current = await r.json();
+    renderDetail();
+  } catch (e) {
+    document.getElementById('pt-id').textContent = `Error: ${e.message}`;
+  }
+}
+
+function renderDetail() {
+  const p = current;
+  document.getElementById('pt-id').innerHTML = `Patient <span style="font-family:var(--mono)">${p.subject_id}</span>`;
+  document.getElementById('pt-admissions').textContent =
+    `${p.n_total_admissions != null ? p.n_total_admissions : (p.n_admissions || '?')} prior admissions`;
+  const span = (p.first_date && p.last_date) ? `${p.first_date.slice(0,10)} \u2192 ${p.last_date.slice(0,10)}` : '';
+  document.getElementById('pt-dates').textContent = span;
+  document.getElementById('pt-service').textContent = p.current_service || '';
+  document.getElementById('tax-tag').textContent = p.taxonomy_version ? `taxonomy ${p.taxonomy_version}` : '';
+
+  const rv = p.review || {};
+  const badge = document.getElementById('pt-review');
+  if (rv.status && rv.status !== 'pending_review') {
+    badge.className = 'review-badge approved';
+    badge.textContent = `${rv.status === 'approved_with_edit' ? 'approved (edited)' : 'approved'}` +
+      (rv.reviewed_by ? ` \u00b7 ${rv.reviewed_by}` : '');
+  } else { badge.className = 'review-badge pending'; badge.textContent = 'pending review'; }
+
+  // ---- Established record (collapsible reference) ----
+  const est = [];
+  if ((p.tldr_md||'').trim()) est.push(sec('TL;DR', `<div class="card tldr-card md">${md(p.tldr_md)}</div>`));
+  if ((p.current_episode_md||'').trim()) est.push(sec('Previous Admission', `<div class="card md">${md(p.current_episode_md)}</div>`));
+  const epis = p.episodes || [];
+  if (epis.length) {
+    const blocks = epis.map(e => `<div class="epi"><div class="epi-hdr">
+        <span class="epi-seq">seq ${e.admit_seq != null ? e.admit_seq : '?'}</span>
+        <span style="font-family:var(--mono)">${e.admit_date ? e.admit_date.slice(0,10) : ''}</span>
+        ${e.service ? '<span class="svc-tag">'+esc(e.service)+'</span>' : ''}</div>
+        <div class="md">${md(e.paragraph_md)}</div></div>`).join('');
+    est.push(sec('Recent Admissions', blocks, epis.length));
+  }
+  // Tier 3 editor. When a TRIAGE concern is open it is rendered INSIDE the concern
+  // pane instead (inline=true), so the physician edits without scrolling past the
+  // established record to find it.
+  if (!currentConcern || currentConcern.subject_id !== p.subject_id) {
+    const ph = priorEditorHtml(p, false);
+    if (ph) est.push(sec('Prior Admissions (compacted)', ph));
+  }
+  const led = p.ledger || {nodes:[],flagged:[]};
+  {
+    // The ledger section is rendered even when EMPTY. A physician noticing that
+    // something should be in the record but isn't is the highest-value report
+    // the loop can receive, and until now there was no way to make it - a
+    // missing fact has no row to click. The toolbar carries that path.
+    let body = `<div class="led-tools"><button class="rpt-btn" onclick="fbOpenMissing()">
+        &#43; Report something missing from this record</button></div>`;
+    body += led.nodes&&led.nodes.length ? ledgerTable(led.nodes,false) : '';
+    if (led.flagged&&led.flagged.length) { body += `<div class="led-sub">Flagged &ndash; provisional, ${led.flagged.length}</div>` + ledgerTable(led.flagged,true); }
+    est.push(sec('Retention Ledger', body, (led.nodes?led.nodes.length:0)+(led.flagged?led.flagged.length:0)));
+  }
+  const established = `<details class="established" open><summary>Established record (reference)</summary><div class="est-body">${est.join('')}</div></details>`;
+
+  // ---- Incoming admission under review ----
+  let incomingBlock;
+  const inc = p.incoming;
+  if (inc) {
+    const when = `${inc.admit_date ? inc.admit_date.slice(0,10) : ''}${inc.service ? ', ' + esc(inc.service) : ''}`;
+    const draft = (rv.edited_summary_md && rv.edited_summary_md.trim()) ? rv.edited_summary_md : (inc.summary_md || '');
+    incomingBlock = `
+      <div class="incoming-hdr"><span class="lbl">Incoming &ndash; under review</span>
+        <span style="font-family:var(--mono)">Admission ${inc.admit_seq != null ? inc.admit_seq : '?'}${when ? ' ('+when+')' : ''}</span>
+        <span class="muted" style="font-family:var(--mono);font-size:12px">hadm ${inc.hadm_id}</span></div>
+      <div class="two-pane">
+        <div class="pane"><div class="pane-hdr"><span class="edit-dot">&#9679;</span> Tier 1 summary &ndash; editable (plain text)</div>
+          <div class="editable-wrap"><span class="edit-tag">editable</span><textarea id="edit" class="editable" spellcheck="false">${esc(draft)}</textarea></div></div>
+        <div class="pane"><div class="pane-hdr">Incoming admission &ndash; source BHC (read-only)</div>
+          <div class="bhc-raw">${esc(inc.bhc_text || '(none)')}</div></div>
+      </div>`;
+  } else {
+    incomingBlock = `<div class="card muted">No incoming admission under review for this patient (holdout disabled, or none loaded).</div>`;
+  }
+
+ document.getElementById('incoming-pane').innerHTML = incomingBlock;
+ renderConcern();
+ document.getElementById('est-scroll').innerHTML = retentionPanel(p.retention_flags) + established;
+
+  // controls
+  const ctrl = document.getElementById('controls');
+  if (inc) {
+    ctrl.classList.add('visible');
+    physSet(rv.reviewed_by || '');
+    document.getElementById('phys-notes').value = rv.physician_notes || '';
+    setStatus(rv.status && rv.status !== 'pending_review'
+      ? `Last reviewed by ${rv.reviewed_by || '?'}${rv.reviewed_at ? ' at ' + rv.reviewed_at.slice(0,16).replace('T',' ') : ''}` : '', '');
+  } else { ctrl.classList.remove('visible'); }
+}
+
+async function submitReview() {
+  const name = document.getElementById('phys-name').value.trim();
+  const notes = document.getElementById('phys-notes').value.trim();
+  const summary = (document.getElementById('edit') || {}).value || '';
+  if (!name) { setStatus('Physician name is required.', 'err'); return; }
+  if (!summary.trim()) { setStatus('Summary cannot be empty.', 'err'); return; }
+  // Fold-in now runs the full per-subject cascade (re-extract -> ledger rebuild ->
+  // compaction + faithfulness re-check -> reload) in the background, so the record does
+  // not update instantly. Warn the physician what to expect before committing.
+  if (!confirm('Approve this discharge?\n\nThe admission will be folded into the longitudinal '
+             + 'record in the background (re-extraction, ledger rebuild, faithfulness re-check, '
+             + 'and reload). The updated longitudinal summary will be ready in about an hour.')) {
+    return;
+  }
+  const ba = document.getElementById('btn-approve');
+  ba.disabled = true; setStatus('Submitting\u2026', '');
+  try {
+    const r = await fetch(`/tiered/review/patient/${current.subject_id}/submit`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ physician_name:name, edited_summary_md:summary, physician_notes:notes || null })
+    });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+    const verb = d.decision === 'approved_with_edit' ? 'approved with edits' : 'approved';
+    setStatus(`Saved \u2013 ${verb} (v${d.summary_version}) at ${String(d.reviewed_at).slice(0,16).replace('T',' ')} \u00b7 fold-in running in background, updated summary ready in ~1 hr`, 'ok');
+    const reviewedId = current.subject_id;
+    await refreshAll();                       // approved discharge drops off the tasklist
+    await selectPatient(reviewedId);         // keep detail visible, now showing approved state
+  } catch (e) {
+    setStatus(`Error: ${e.message}`, 'err');
+  } finally {
+    ba.disabled = false;
+  }
+}
+
+function setStatus(msg, kind) { const s = document.getElementById('status-msg'); s.textContent = msg; s.className = kind || ''; }
+function sec(title, inner, n) { const c = (n!=null)?`<span class="n">${n}</span>`:''; return `<div class="section"><div class="section-hdr">${esc(title)} ${c}</div>${inner}</div>`; }
+
+function negBadge(nk) {
+  // Render the negative_kind sense distinctly. Display-safety: a resolved event must
+  // NOT read as 'absent' -- distinct colour + label per kind.
+  const m = {
+    absent_or_negative: ['var(--neg)', 'absent'],        // documented absence / screening-negative
+    resolved_relevant:  ['#b07400', 'resolved'],          // the event OCCURRED, now resolved (not absent)
+    surveillance:       ['#1a6fb0', 'surveillance'],      // unconfirmed finding under watch
+  }[nk];
+  return m ? ` <span style="color:${m[0]};font-size:12px">(${m[1]})</span>` : '';
+}
+
+function ledgerTable(rows, flagged) {
+  const head = `<thead><tr><th>Tier</th><th>Fact</th><th>Class</th><th>Cert.</th><th>Lifecycle</th><th>Onset</th><th>Last</th><th>n</th><th></th></tr></thead>`;
+  const body = rows.map(r => {
+    const t = (r.salience_tier||'').toUpperCase();
+    const tc = (t==='T1'||t==='T2'||t==='T3') ? t : 'other';
+    // fact_ids is the ONLY stable anchor for a ledger row: tiered_ledger.id is
+    // SERIAL and d3 deletes-then-reinserts per subject on every fold-in, so it
+    // changes underneath any report keyed to it. The API already returns
+    // fact_ids; it was previously dropped here and never reached the DOM.
+    const idx = fbRegister({
+      anchor_kind:'ledger_row', fact_ids:r.fact_ids||[], source_hadm_ids:r.source_hadm_ids||[],
+      fact_text:r.text||'', salience_tier:r.salience_tier, retention_class:r.retention_class,
+      certainty:r.certainty, current_lifecycle:r.current_lifecycle, negative_kind:r.negative_kind
+    });
+    return `<tr class="${flagged?'flagged':''}">
+      <td><span class="tier ${tc}">${esc(r.salience_tier||'?')}</span></td>
+      <td>${esc(r.text||'')}${negBadge(r.negative_kind)}</td>
+      <td class="led-cls">${esc(r.retention_class||'')}</td>
+      <td>${esc(r.certainty||'')}</td>
+      <td>${esc(r.current_lifecycle||'')}</td>
+      <td class="muted">${r.onset_date?r.onset_date.slice(0,10):'&mdash;'}</td>
+      <td class="muted">${r.last_confirmed_date?r.last_confirmed_date.slice(0,10):'&mdash;'}</td>
+      <td>${r.n_mentions != null ? r.n_mentions : '&mdash;'}</td>
+      <td class="rpt-cell"><button class="rpt-btn" title="Report a problem with this row" onclick="fbOpen(${idx})">report</button></td></tr>`;
+  }).join('');
+  return `<div class="led-wrap"><table class="led">${head}<tbody>${body}</tbody></table></div>`;
+}
+
+function retentionPanel(flags) {
+  if (!flags || !flags.length) return '';
+  const nMiss = flags.filter(f => f.issue === 'MISSING').length;
+  const nRoll = flags.length - nMiss;
+  const rollupOnly = nMiss === 0;
+  const recall = (flags[0] && flags[0].recall != null) ? flags[0].recall.toFixed(2) : null;
+  const head = `<thead><tr><th>Issue</th><th>Tier</th><th>Fact</th><th>Class</th><th>Cert.</th><th>Src adm</th><th></th></tr></thead>`;
+  const body = flags.map(f => {
+    const miss = f.issue === 'MISSING';
+    const t = (f.salience_tier || '').toUpperCase();
+    const tc = (t === 'T1' || t === 'T2' || t === 'T3') ? t : 'other';
+    const act = (f.id != null)
+      ? `<button class="ra-rowbtn res" title="Mark resolved" onclick="resolveRetention('resolved',[${f.id}])">&#10003;</button><button class="ra-rowbtn dis" title="Dismiss" onclick="resolveRetention('dismissed',[${f.id}])">&#10005;</button>`
+      : '';
+    // Completeness flags carry no fact_id - only (fact_text, source_hadm_id).
+    // The collector reconstructs sha1(source_hadm_id|text) from them, with a
+    // normalised-text fallback, so the anchor still resolves.
+    const ridx = fbRegister({
+      anchor_kind:'retention_flag',
+      anchor_key:`${f.issue}|${f.source_hadm_id != null ? f.source_hadm_id : ''}|${f.fact_text||''}`,
+      fact_ids:[], source_hadm_ids:(f.source_hadm_id != null ? [f.source_hadm_id] : []),
+      fact_text:f.fact_text||'', salience_tier:f.salience_tier,
+      retention_class:f.retention_class, certainty:f.certainty,
+      // Pre-select S1: the physician is already looking at a MISSING flag, so
+      // asking them what kind of problem it is would be asking a question the
+      // screen has answered. ROLLUP maps to S6, its designed-behaviour twin.
+      preset_symptom:(f.issue === 'MISSING' ? 'S1' : 'S6')
+    });
+    return `<tr class="${miss ? 'flagged' : ''}">
+      <td><span class="ra-issue ${miss ? 'missing' : 'rollup'}">${miss ? 'MISSING' : 'ROLLUP'}</span></td>
+      <td><span class="tier ${tc}">${esc(f.salience_tier || '?')}</span></td>
+      <td>${esc(f.fact_text || '')}</td>
+      <td class="led-cls">${esc(f.retention_class || '')}</td>
+      <td>${esc(f.certainty || '')}</td>
+      <td class="muted" style="font-family:var(--mono);font-size:12px">${f.source_hadm_id != null ? f.source_hadm_id : '&mdash;'}</td>
+      <td class="ra-act">${act}<button class="rpt-btn" style="margin-left:5px" title="Report a problem with this row" onclick="fbOpen(${ridx})">report</button></td></tr>`;
+  }).join('');
+  const sub = `${nMiss} missing${nRoll ? ` &middot; ${nRoll} in-rollup` : ''}${recall ? ` &middot; recall ${recall}` : ''}`;
+  return `<div class="retention-alert${rollupOnly ? ' rollup-only' : ''}">
+      <div class="ra-hdr"><span class="ra-title">&#9888; Retention flags &ndash; needs re-review</span>
+        <span class="ra-sub">${sub}</span></div>
+      <div class="ra-body">
+        <div class="ra-note">Pinned facts from now-compacted admissions that may be under-represented
+          in the served record. <strong>MISSING</strong> = absent from the ledger (retention loss);
+          <strong>ROLLUP</strong> = a sentinel event filed only as a recurrence count. Resolve/dismiss
+          each row, or use the buttons below for all remaining.</div>
+        <div class="led-wrap"><table class="led">${head}<tbody>${body}</tbody></table></div>
+        <div class="ra-actions">
+          <input type="text" id="ret-notes" placeholder="Triage note (optional)">
+          <button class="btn btn-approve" onclick="resolveRetention('resolved')">Resolve all</button>
+          <button class="btn btn-edit" onclick="resolveRetention('dismissed')">Dismiss all</button>
+          <span id="ret-status" class="ra-status"></span>
+        </div>
+      </div></div>`;
+}
+
+async function resolveRetention(disposition, ids) {
+  const name = (document.getElementById('phys-name') || {}).value?.trim() || '';
+  const notes = (document.getElementById('ret-notes') || {}).value?.trim() || '';
+  if (!name) { setRetStatus('Enter your name (top right) first.', 'err'); return; }
+  const sid = current.subject_id;
+  try {
+    const body = { physician_name:name, disposition, notes: notes || null };
+    if (ids && ids.length) body.ids = ids;      // omitted = all pending for the subject
+    const r = await fetch(`/tiered/review/patient/${sid}/retention/resolve`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+    setRetStatus(`${d.resolved} flag(s) ${disposition}.`, 'ok');
+    await refreshAll();
+    await selectPatient(sid);           // re-render; panel shrinks/disappears as rows clear
+  } catch (e) { setRetStatus(`Error: ${e.message}`, 'err'); }
+}
+function setRetStatus(msg, kind) { const s = document.getElementById('ret-status'); if (s) { s.textContent = msg; s.className = 'ra-status ' + (kind || ''); } }
+
+// ── Physician feedback: report a ledger row ──────────────────────────────────
+// The UI half of the loop promised in HOW_TO_READ_THE_LEDGER.md section 8. The
+// physician supplies only what they know - which row, what is wrong, and two
+// yes/no questions of fact. Cohort, namespace, taxonomy_version and the
+// artifact timestamp are captured SERVER-side: a client cannot be trusted to
+// report the version of the artifact it is displaying, and without that stamp a
+// report cannot be dispositioned later, only re-investigated.
+
+let fbRows = [];          // row payloads, indexed by the button that opened them
+let fbCurrent = null;
+let fbSymptoms = null;    // cached picker, fetched once per page load
+let fbRoster = null;      // staff roster; null until loaded, [] if unavailable
+
+function fbRegister(row) { fbRows.push(row); return fbRows.length - 1; }
+
+// ---- physician identity -----------------------------------------------------
+// The header control is shared with sign-off, Tier 3 edits and concern triage,
+// so the roster must never be load-bearing for those: if it cannot be fetched,
+// the select is replaced by the original free-text input and every existing flow
+// keeps working unchanged, since all of them only ever read `.value`.
+
+async function physLoad() {
+  try {
+    const r = await fetch('/tiered/feedback/physicians');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    fbRoster = d.physicians || [];
+    if (!fbRoster.length) throw new Error('roster empty');
+    physFill(document.getElementById('phys-name'));
+  } catch (e) {
+    fbRoster = [];
+    physFallback();
+  }
+}
+
+function physFill(sel) {
+  if (!sel || sel.tagName !== 'SELECT') return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">- who are you? -</option>' +
+    (fbRoster || []).map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+  if (keep) physSet(keep);
+}
+
+function physFallback() {
+  const el = document.getElementById('phys-name');
+  if (!el || el.tagName !== 'SELECT') return;
+  const v = el.value || '';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.id = 'phys-name'; inp.placeholder = 'Physician name';
+  inp.value = v; inp.style.cssText = el.style.cssText;
+  el.replaceWith(inp);
+}
+
+// Prior reviewers are not necessarily on the current roster (they may have left,
+// or the record may predate the directory). Setting an unknown value on a select
+// silently blanks it, which would erase the "last reviewed by" prefill, so an
+// unknown name is added as an option rather than dropped.
+function physSet(name) {
+  const el = document.getElementById('phys-name');
+  if (!el) return;
+  if (el.tagName !== 'SELECT') { el.value = name || ''; return; }
+  if (name && ![...el.options].some(o => o.value === name)) {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name + ' (not on roster)';
+    el.appendChild(o);
+  }
+  el.value = name || '';
+}
+
+function physName() {
+  const el = document.getElementById('phys-name');
+  return el ? (el.value || '').trim() : '';
+}
+
+physLoad();
+
+async function fbLoadSymptoms() {
+  if (fbSymptoms) return fbSymptoms;
+  const r = await fetch('/tiered/feedback/symptoms');
+  if (!r.ok) {
+    const d = await r.json().catch(()=>({}));
+    throw new Error(d.detail || `HTTP ${r.status}`);
+  }
+  const d = await r.json();
+  fbSymptoms = d.symptoms || [];
+  return fbSymptoms;
+}
+
+async function fbOpen(idx) {
+  const row = fbRows[idx];
+  if (!row || !current) return;
+  await fbShow(row, false);
+}
+
+// A missing fact has no row to click, so it is reported at the section level.
+// The card is filed with anchor_kind='other' and no fact_ids; the collector
+// resolves the text against retention_facts and recovers the fact's real tier,
+// which is what lets a missing T1 allergy reach 'urgent' by the same rule as one
+// reported from a visible row.
+async function fbOpenMissing() {
+  if (!current) return;
+  await fbShow({ anchor_kind:'other', fact_ids:[], source_hadm_ids:[],
+                 missing:true, preset_symptom:'S1' }, true);
+}
+
+async function fbShow(row, missing) {
+  fbCurrent = row;
+  document.getElementById('fb-title').textContent =
+    missing ? 'Report something missing' : 'Report this row';
+  document.getElementById('fb-quote').style.display = missing ? 'none' : '';
+  document.getElementById('fb-missing-row').style.display = missing ? '' : 'none';
+
+  if (!missing) {
+    const meta = [row.salience_tier, row.retention_class, row.certainty, row.current_lifecycle]
+                   .filter(Boolean).join(' \u00b7 ');
+    document.getElementById('fb-quote').innerHTML =
+      `${esc(row.fact_text || '(no text)')}` +
+      (meta ? `<div class="meta">${esc(meta)}</div>` : '');
+  }
+
+  const sel = document.getElementById('fb-symptom');
+  sel.innerHTML = '<option value="">Loading&hellip;</option>';
+  document.getElementById('fb-text').value = '';
+  document.getElementById('fb-miss-text').value = '';
+  document.getElementById('fb-miss-hadm').value = '';
+  document.getElementById('fb-action').checked = false;
+  document.getElementById('fb-others').checked = false;
+  document.getElementById('fb-field').value = '';
+  fbSetStatus('', '');
+
+  // Identity, inside the dialog, pre-set from the header if already chosen.
+  const ps = document.getElementById('fb-phys');
+  if (fbRoster && fbRoster.length) {
+    ps.innerHTML = '<option value="">- who are you? -</option>' +
+      fbRoster.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+    ps.value = physName();
+    ps.disabled = false;
+  } else {
+    ps.innerHTML = `<option value="${esc(physName())}">${esc(physName() || '(set your name in the header)')}</option>`;
+    ps.disabled = true;
+  }
+
+  document.getElementById('fb-modal').classList.add('open');
+
+  try {
+    const syms = await fbLoadSymptoms();
+    sel.innerHTML = '<option value="">- select -</option>' +
+      syms.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
+    if (row.preset_symptom && syms.some(s => s.id === row.preset_symptom)) {
+      sel.value = row.preset_symptom;
+    }
+    fbSymptomChanged();
+    document.getElementById(missing ? 'fb-miss-text' : 'fb-text').focus();
+  } catch (e) {
+    sel.innerHTML = '<option value="">unavailable</option>';
+    fbSetStatus(`Reporting is unavailable: ${e.message}`, 'err');
+  }
+}
+
+function fbClose() {
+  document.getElementById('fb-modal').classList.remove('open');
+  fbCurrent = null;
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('fb-modal').classList.contains('open')) fbClose();
+});
+
+function fbSymptomChanged() {
+  // S3 ("labelled wrongly") needs to say WHICH label. Without it, U-3 cannot
+  // distinguish a disputed status on a T1 row - a safety inversion, e.g. a
+  // superseded allergy shown active - from a disputed tier on the same row,
+  // which is routine. The server rejects S3 without it rather than mis-triage.
+  const s = document.getElementById('fb-symptom').value;
+  document.getElementById('fb-field-row').style.display = (s === 'S3') ? '' : 'none';
+}
+
+async function fbSubmit() {
+  if (!fbCurrent || !current) return;
+  const missing = !!fbCurrent.missing;
+  // Identity taken from the dialog, then written back to the header so the rest
+  // of the session is already set. This is what removes the cancel-and-return
+  // detour that used to be forced on a physician who had not yet named themself.
+  const ps = document.getElementById('fb-phys');
+  const name = (ps && !ps.disabled ? (ps.value || '').trim() : '') || physName();
+  if (name) physSet(name);
+
+  const symptom = document.getElementById('fb-symptom').value;
+  const text = document.getElementById('fb-text').value.trim();
+  const field = document.getElementById('fb-field').value || null;
+  const missText = document.getElementById('fb-miss-text').value.trim();
+  const missHadm = document.getElementById('fb-miss-hadm').value.trim();
+
+  if (!name)    { fbSetStatus('Choose who you are.', 'err'); return; }
+  if (!symptom) { fbSetStatus('Choose what is wrong.', 'err'); return; }
+  if (missing && !missText) { fbSetStatus('Say what is missing.', 'err'); return; }
+  if (!text)    { fbSetStatus('Please describe the problem.', 'err'); return; }
+  if (symptom === 'S3' && !field) { fbSetStatus('Say which part is wrong.', 'err'); return; }
+
+  const hadms = missing
+    ? (missHadm.match(/\d+/g) || []).map(Number)
+    : (fbCurrent.source_hadm_ids || []);
+
+  const btn = document.getElementById('fb-send');
+  btn.disabled = true;
+  fbSetStatus('Sending&hellip;', '');
+  try {
+    const r = await fetch('/tiered/feedback/report', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        physician_name: name,
+        subject_id: current.subject_id,
+        symptom, report_text: text,
+        disputed_field: field,
+        clinical_action_flag: document.getElementById('fb-action').checked,
+        seen_other_patients: document.getElementById('fb-others').checked,
+        anchor_kind: fbCurrent.anchor_kind,
+        anchor_key: fbCurrent.anchor_key || null,
+        fact_ids: fbCurrent.fact_ids || [],
+        source_hadm_ids: hadms,
+        // For a missing-fact report the typed description IS the fact text: it
+        // is what the collector searches retention_facts for.
+        fact_text: missing ? missText : (fbCurrent.fact_text || null),
+        salience_tier: missing ? null : (fbCurrent.salience_tier || null),
+        retention_class: missing ? null : (fbCurrent.retention_class || null),
+        certainty: missing ? null : (fbCurrent.certainty || null),
+        current_lifecycle: missing ? null : (fbCurrent.current_lifecycle || null),
+        negative_kind: missing ? null : (fbCurrent.negative_kind || null)
+      })
+    });
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+    // Show what happens next, verbatim from the server. Telling the physician
+    // where the report went is the entire reason they will file a second one.
+    fbSetStatus(d.message || `Report #${d.feedback_id} received.`, 'ok');
+    setTimeout(fbClose, 2600);
+  } catch (e) {
+    fbSetStatus(`Could not send: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function fbSetStatus(msg, kind) {
+  const s = document.getElementById('fb-status');
+  if (s) { s.innerHTML = msg; s.className = kind || ''; }
+}
+
+function md(t) {
+  const inline = s => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+?)`/g, '<code>$1</code>');
+  const lines = String(t || '').replace(/\r/g, '').split('\n');
+  let html = '', inList = false, lt = '';
+  const close = () => { if (inList) { html += lt === 'ol' ? '</ol>' : '</ul>'; inList = false; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { close(); continue; }
+    if (/^---+$/.test(line)) { close(); html += '<hr>'; continue; }
+    let m;
+    if ((m = line.match(/^(#{1,6})\s+(.*)$/))) { close(); const lv = Math.min(m[1].length, 3); html += `<h${lv}>${inline(m[2])}</h${lv}>`; continue; }
+    if ((m = line.match(/^[-*]\s+(.*)$/))) { if (!inList || lt !== 'ul') { close(); html += '<ul>'; inList = true; lt = 'ul'; } html += `<li>${inline(m[1])}</li>`; continue; }
+    if ((m = line.match(/^\d+\.\s+(.*)$/))) { if (!inList || lt !== 'ol') { close(); html += '<ol>'; inList = true; lt = 'ol'; } html += `<li>${inline(m[1])}</li>`; continue; }
+    close(); html += `<p>${inline(line)}</p>`;
+  }
+  close();
+  return html;
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+
+<script>
+/* Static mockup: open the patient as if the physician had clicked the queue row. */
+(function () {
+  const chip = document.createElement('span');
+  chip.textContent = 'STATIC MOCKUP · SYNTHETIC DATA';
+  chip.style.cssText = 'font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:4px 10px;' +
+    'border:1px solid var(--high-border);background:var(--high-bg);color:var(--high);border-radius:var(--radius)';
+  const qc = document.getElementById('queue-count');
+  qc.parentNode.insertBefore(chip, qc);
+  refreshAll().then(() => selectPatient(99990001)).then(() => renderQueue());
+})();
+</script>
+</body>
+</html>

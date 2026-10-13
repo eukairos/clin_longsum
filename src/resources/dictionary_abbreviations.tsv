@@ -1,0 +1,484 @@
+abbreviation	expansion	category
+AAA	abdominal aortic aneurysm	diagnosis
+ABG	arterial blood gas	lab
+ABG	arterial blood gas	procedure
+ABX	antibiotics	medication
+ACEI	ACE inhibitor	medication
+ACEi	ACE inhibitor	medication
+ACS	acute coronary syndrome	diagnosis
+ADC	apparent diffusion coefficient	imaging
+AED	automated external defibrillator	procedure
+AF	atrial fibrillation	diagnosis
+AFP	alpha-fetoprotein	lab
+AFib	atrial fibrillation	diagnosis
+AKA	above-knee amputation	shorthand
+AKI	acute kidney injury	diagnosis
+ALL	acute lymphoblastic leukemia	diagnosis
+ALT	alanine aminotransferase	lab
+AMA	against medical advice	documentation
+AML	acute myeloid leukemia	diagnosis
+AMS	altered mental status	diagnosis
+ANA	antinuclear antibody	lab
+ANC	absolute neutrophil count	lab
+AP	anteroposterior	imaging
+APACHE	Acute Physiology and Chronic Health Evaluation	scoring
+APGAR	Appearance Pulse Grimace Activity Respiration	scoring
+APTT	activated partial thromboplastin time	lab
+ARB	angiotensin receptor blocker	medication
+ARDS	acute respiratory distress syndrome	diagnosis
+ASA	aspirin (acetylsalicylic acid)	medication
+ASCVD	atherosclerotic cardiovascular disease	diagnosis
+ASD	atrial septal defect	diagnosis
+ASHD	atherosclerotic heart disease	diagnosis
+AST	aspartate aminotransferase	lab
+AVR	aortic valve replacement	diagnosis
+BB	beta blocker	medication
+BG	blood glucose	lab
+BID	twice daily (bis in die)	medication
+BKA	below-knee amputation	shorthand
+BLE	bilateral lower extremities	shorthand
+BMI	body mass index	scoring
+BMP	basic metabolic panel	procedure
+BNP	brain natriuretic peptide	lab
+BP	blood pressure	lab
+BPH	benign prostatic hyperplasia	diagnosis
+BRBPR	bright red blood per rectum	documentation
+BSA	body surface area	scoring
+BUE	bilateral upper extremities	shorthand
+BUN	blood urea nitrogen	lab
+BiPAP	bilevel positive airway pressure	procedure
+C diff	Clostridioides difficile	infectious_disease
+C.diff	Clostridioides difficile	infectious_disease
+CA	calcium	lab
+CABG	coronary artery bypass graft	diagnosis
+CAD	coronary artery disease	diagnosis
+CBC	complete blood count	procedure
+CC	chief complaint	documentation
+CCB	calcium channel blocker	medication
+CCU	coronary care unit	documentation
+CDI	Clostridioides difficile infection	infectious_disease
+CEA	carcinoembryonic antigen	lab
+CHA2DS2-VASc	congestive HF HTN age DM stroke vascular disease	scoring
+CHADS2	cardiac failure hypertension age diabetes stroke	scoring
+CHF	congestive heart failure	diagnosis
+CKD	chronic kidney disease	diagnosis
+CLL	chronic lymphocytic leukemia	diagnosis
+CML	chronic myeloid leukemia	diagnosis
+CMP	comprehensive metabolic panel	procedure
+CMV	cytomegalovirus	infectious_disease
+CNS	central nervous system	anatomy
+COPD	chronic obstructive pulmonary disease	diagnosis
+COVID	coronavirus disease	infectious_disease
+COVID-19	coronavirus disease 2019	infectious_disease
+CP	chest pain	shorthand
+CPAP	continuous positive airway pressure	diagnosis
+CRE	carbapenem-resistant Enterobacteriaceae	infectious_disease
+CRP	C-reactive protein	lab
+CRRT	continuous renal replacement therapy	procedure
+CSF	cerebrospinal fluid	anatomy
+CT	computed tomography	procedure
+CTA	computed tomography angiography	procedure
+CURB-65	confusion urea RR BP age>=65	scoring
+CVA	cerebrovascular accident	diagnosis
+CVC	central venous catheter	procedure
+CVD	cardiovascular disease	diagnosis
+CVS	cardiovascular system	anatomy
+CXR	chest x-ray	procedure
+Cr	creatinine	lab
+D&C	dilation and curettage	procedure
+D-dimer	D-dimer	lab
+D/C	discharge or discontinue	documentation
+D/C	discontinue or discharge	procedure
+D5NS	5% dextrose in normal saline	medication
+D5W	5% dextrose in water	medication
+DBP	diastolic blood pressure	lab
+DDI	drug-drug interaction	medication
+DEXA	dual-energy X-ray absorptiometry	imaging
+DIC	disseminated intravascular coagulation	diagnosis
+DKA	diabetic ketoacidosis	diagnosis
+DM	diabetes mellitus	diagnosis
+DM2	diabetes mellitus type 2	diagnosis
+DMII	diabetes mellitus type 2	diagnosis
+DNI	do not intubate	documentation
+DNR	do not resuscitate	documentation
+DOAC	direct oral anticoagulant	medication
+DOE	dyspnea on exertion	documentation
+DSW	dextrose in sterile water	medication
+DTR	deep tendon reflex	documentation
+DTRs	deep tendon reflexes	documentation
+DVT	deep vein thrombosis	diagnosis
+DWI	diffusion-weighted imaging	imaging
+DXA	dual-energy X-ray absorptiometry	imaging
+Dx	diagnosis	documentation
+EBV	Epstein-Barr virus	infectious_disease
+ECG	electrocardiogram	procedure
+ECMO	extracorporeal membrane oxygenation	procedure
+ED	emergency department	documentation
+EEG	electroencephalogram	procedure
+EGD	esophagogastroduodenoscopy	procedure
+EKG	electrocardiogram	procedure
+EMG	electromyography	procedure
+ENT	ear nose and throat	anatomy
+EPO	erythropoietin	medication
+ER	emergency room	documentation
+ER	extended release	medication
+ERCP	endoscopic retrograde cholangiopancreatography	procedure
+ESBL	extended-spectrum beta-lactamase	infectious_disease
+ESKD	end-stage kidney disease	diagnosis
+ESR	erythrocyte sedimentation rate	lab
+ESRD	end-stage renal disease	diagnosis
+ETOH	alcohol	diagnosis
+ETT	endotracheal tube	procedure
+EtOH	alcohol	diagnosis
+FBS	fasting blood sugar	lab
+FHx	family history	documentation
+FLAIR	fluid-attenuated inversion recovery	imaging
+FOBT	fecal occult blood test	procedure
+FTT	failure to thrive	diagnosis
+FiO2	fraction of inspired oxygen	lab
+G-CSF	granulocyte colony-stimulating factor	medication
+GCS	Glasgow Coma Scale	documentation
+GCS	Glasgow Coma Scale	scoring
+GCSF	granulocyte colony-stimulating factor	medication
+GERD	gastroesophageal reflux disease	diagnosis
+GFR	glomerular filtration rate	lab
+GI	gastrointestinal	anatomy
+GIB	gastrointestinal bleeding	diagnosis
+GOC	goals of care	documentation
+GSW	gunshot wound	diagnosis
+GU	genitourinary	anatomy
+H&P	history and physical	documentation
+HAS-BLED	bleeding risk score	scoring
+HAV	hepatitis A virus	infectious_disease
+HBV	hepatitis B virus	infectious_disease
+HCC	hepatocellular carcinoma	diagnosis
+HCTZ	hydrochlorothiazide	medication
+HCV	hepatitis C virus	infectious_disease
+HD	hemodialysis	procedure
+HDL	high-density lipoprotein	lab
+HEENT	head ears eyes nose throat	anatomy
+HF	heart failure	diagnosis
+HFpEF	heart failure with preserved ejection fraction	diagnosis
+HFrEF	heart failure with reduced ejection fraction	diagnosis
+HIV	human immunodeficiency virus	diagnosis
+HLD	hyperlipidemia	diagnosis
+HPI	history of present illness	documentation
+HR	heart rate	lab
+HRCT	high-resolution computed tomography	imaging
+HS	at bedtime (hora somni)	medication
+HSV	herpes simplex virus	infectious_disease
+HTN	hypertension	diagnosis
+Hb	hemoglobin	lab
+HbA1c	glycated hemoglobin	lab
+Hct	hematocrit	lab
+Hgb	hemoglobin	lab
+Hx	history	documentation
+I&D	incision and drainage	documentation
+I/O	intake and output	documentation
+IABP	intra-aortic balloon pump	procedure
+IBD	inflammatory bowel disease	diagnosis
+IBS	irritable bowel syndrome	diagnosis
+ICD	implantable cardioverter-defibrillator	procedure
+ICH	intracranial hemorrhage	diagnosis
+ICP	intracranial pressure	procedure
+ICU	intensive care unit	documentation
+IDDM	insulin-dependent diabetes mellitus	diagnosis
+IM	intramuscular	medication
+INH	isoniazid	medication
+INR	international normalised ratio	procedure
+ITP	idiopathic thrombocytopenic purpura	diagnosis
+IU	international unit	medication
+IV	intravenous	medication
+IVF	intravenous fluids	medication
+IVPB	intravenous piggyback	medication
+IVUS	intravascular ultrasound	procedure
+K	potassium	lab
+KCl	potassium chloride	medication
+KUB	kidneys ureters bladder (x-ray)	procedure
+L	liters	unit
+LDH	lactate dehydrogenase	lab
+LDL	low-density lipoprotein	lab
+LE	lower extremity	shorthand
+LFT	liver function test	lab
+LFTs	liver function tests	lab
+LLE	left lower extremity	shorthand
+LLL	left lower lobe	diagnosis
+LLQ	left lower quadrant	anatomy
+LMWH	low-molecular-weight heparin	medication
+LOS	length of stay	documentation
+LP	lumbar puncture	procedure
+LR	lactated Ringer's	medication
+LUE	left upper extremity	shorthand
+LUL	left upper lobe	diagnosis
+LUQ	left upper quadrant	anatomy
+Lytes	electrolytes	lab
+MAOi	monoamine oxidase inhibitor	medication
+MAP	mean arterial pressure	lab
+MDI	metered-dose inhaler	medication
+MDS	myelodysplastic syndrome	diagnosis
+MELD	Model for End-Stage Liver Disease	scoring
+MERS	Middle East respiratory syndrome	infectious_disease
+MGUS	monoclonal gammopathy of undetermined significance	diagnosis
+MI	myocardial infarction	diagnosis
+MICU	medical intensive care unit	documentation
+MM	multiple myeloma	diagnosis
+MRA	magnetic resonance angiography	procedure
+MRI	magnetic resonance imaging	procedure
+MRSA	methicillin-resistant staphylococcus aureus	diagnosis
+MS	multiple sclerosis	diagnosis
+MSK	musculoskeletal	anatomy
+MVI	multivitamin	medication
+MVR	mitral valve replacement	diagnosis
+Mg	magnesium	lab
+MgSO4	magnesium sulfate	medication
+NAD	no acute distress	documentation
+NG	nasogastric	procedure
+NGT	nasogastric tube	procedure
+NICU	neonatal intensive care unit	documentation
+NIDDM	non-insulin-dependent diabetes mellitus	diagnosis
+NIHSS	NIH Stroke Scale	scoring
+NKA	no known allergies	medication
+NKDA	no known drug allergies	documentation
+NKDA	no known drug allergies	medication
+NOAC	novel oral anticoagulant	medication
+NPO	nothing by mouth (nil per os)	documentation
+NS	normal saline	medication
+NSAID	nonsteroidal anti-inflammatory drug	medication
+NSAIDs	nonsteroidal anti-inflammatory drugs	medication
+NSTEMI	non-ST elevation myocardial infarction	diagnosis
+NT-proBNP	N-terminal pro-brain natriuretic peptide	lab
+NTG	nitroglycerin	medication
+NYHA	New York Heart Association	scoring
+Na	sodium	lab
+NaCl	sodium chloride	medication
+O2	oxygen	lab
+O2sat	oxygen saturation	lab
+OA	osteoarthritis	diagnosis
+OB/GYN	obstetrics and gynecology	anatomy
+OOB	out of bed	documentation
+OR	operating room	documentation
+ORIF	open reduction internal fixation	procedure
+OSA	obstructive sleep apnea	diagnosis
+OTC	over the counter	medication
+PA	posteroanterior	imaging
+PACU	post-anesthesia care unit	documentation
+PAD	peripheral arterial disease	diagnosis
+PCA	patient-controlled analgesia	medication
+PCI	percutaneous coronary intervention	procedure
+PCN	penicillin	medication
+PD	Parkinson's disease	diagnosis
+PE	physical examination	documentation
+PE	pulmonary embolism	diagnosis
+PEG	percutaneous endoscopic gastrostomy	procedure
+PERRLA	pupils equal round reactive to light and accommodation	anatomy
+PET	positron emission tomography	imaging
+PFT	pulmonary function test	procedure
+PICC	peripherally inserted central catheter	procedure
+PICU	pediatric intensive care unit	documentation
+PMH	past medical history	documentation
+PMHx	past medical history	documentation
+PNA	pneumonia	diagnosis
+PNS	peripheral nervous system	anatomy
+PO	by mouth (per os)	medication
+PO2	partial pressure of oxygen	lab
+POD	postoperative day	documentation
+POD#1	postoperative day 1	documentation
+PPI	proton pump inhibitor	medication
+PPIs	proton pump inhibitors	medication
+PPM	permanent pacemaker	procedure
+PRN	as needed (pro re nata)	medication
+PSA	prostate-specific antigen	lab
+PSH	past surgical history	documentation
+PSHx	past surgical history	documentation
+PT	physical therapy	procedure
+PT	prothrombin time	lab
+PTCA	percutaneous transluminal coronary angioplasty	procedure
+PTT	partial thromboplastin time	lab
+PUD	peptic ulcer disease	diagnosis
+PVD	peripheral vascular disease	diagnosis
+Plt	platelets	lab
+Plts	platelets	lab
+Pt	patient	documentation
+QD	once daily (quaque die)	medication
+QHS	at bedtime	medication
+QID	four times daily	medication
+QOD	every other day	medication
+R/O	rule out	shorthand
+RA	rheumatoid arthritis	diagnosis
+RBC	red blood cell	lab
+RLE	right lower extremity	shorthand
+RLL	right lower lobe	diagnosis
+RLQ	right lower quadrant	anatomy
+RML	right middle lobe	diagnosis
+ROM	range of motion	anatomy
+ROS	review of systems	documentation
+RR	respiratory rate	lab
+RRT	rapid response team	procedure
+RSV	respiratory syncytial virus	infectious_disease
+RUE	right upper extremity	shorthand
+RUL	right upper lobe	diagnosis
+RUQ	right upper quadrant	anatomy
+Rx	prescription	documentation
+Rx	prescription or treatment	medication
+S/P	status post	documentation
+SAH	subarachnoid hemorrhage	diagnosis
+SARS	severe acute respiratory syndrome	infectious_disease
+SBO	small bowel obstruction	diagnosis
+SBP	systolic blood pressure	lab
+SC	subcutaneous	medication
+SCA	sickle cell anemia	diagnosis
+SCC	squamous cell carcinoma	diagnosis
+SIADH	syndrome of inappropriate antidiuretic hormone	diagnosis
+SICU	surgical intensive care unit	documentation
+SL	sublingual	medication
+SLE	systemic lupus erythematosus	diagnosis
+SOB	shortness of breath	diagnosis
+SOFA	Sequential Organ Failure Assessment	scoring
+SPECT	single-photon emission computed tomography	imaging
+SQ	subcutaneous	medication
+SSRI	selective serotonin reuptake inhibitor	medication
+SSRIs	selective serotonin reuptake inhibitors	medication
+STEMI	ST elevation myocardial infarction	diagnosis
+SUV	standardized uptake value	imaging
+SaO2	arterial oxygen saturation	lab
+SpO2	peripheral oxygen saturation	lab
+Sx	symptoms	documentation
+T	temperature	lab
+TB	tuberculosis	diagnosis
+TBI	traumatic brain injury	diagnosis
+TCA	tricyclic antidepressant	medication
+TCAs	tricyclic antidepressants	medication
+TEE	transesophageal echocardiography	procedure
+TG	triglycerides	lab
+THA	total hip arthroplasty	procedure
+THR	total hip replacement	procedure
+TIA	transient ischemic attack	diagnosis
+TID	three times daily (ter in die)	medication
+TIMI	Thrombolysis in Myocardial Infarction	scoring
+TIPS	transjugular intrahepatic portosystemic shunt	procedure
+TKA	total knee arthroplasty	procedure
+TKR	total knee replacement	procedure
+TMP-SMX	trimethoprim-sulfamethoxazole	medication
+TPN	total parenteral nutrition	procedure
+TSH	thyroid-stimulating hormone	lab
+TTE	transthoracic echocardiography	procedure
+TURP	transurethral resection of the prostate	procedure
+Tbili	total bilirubin	lab
+Tmax	maximum temperature	lab
+Trop	troponin	lab
+Tx	treatment	documentation
+U	units	unit
+UA	urinalysis	lab
+UC	ulcerative colitis	diagnosis
+UE	upper extremity	shorthand
+UFH	unfractionated heparin	medication
+UOP	urine output	lab
+URI	upper respiratory infection	diagnosis
+US	ultrasound	procedure
+UTI	urinary tract infection	diagnosis
+VATS	video-assisted thoracoscopic surgery	procedure
+VPA	valproic acid	medication
+VRE	vancomycin-resistant enterococcus	diagnosis
+VS	vital signs	documentation
+VSD	ventricular septal defect	diagnosis
+VTE	venous thromboembolism	diagnosis
+VZV	varicella-zoster virus	infectious_disease
+WBC	white blood cell	lab
+WNL	within normal limits	documentation
+Wells	Wells score (DVT/PE probability)	scoring
+XRT	radiation therapy	procedure
+YO	year old	documentation
+abd	abdomen	anatomy
+afebrile	without fever	shorthand
+approx	approximately	shorthand
+assoc	associated	shorthand
+bilat	bilateral	anatomy
+bilat	bilateral	shorthand
+bpm	beats per minute	unit
+c/o	complains of	documentation
+c/w	consistent with	shorthand
+cc	cubic centimeters	unit
+cm	centimeters	unit
+d/c	discharge or discontinue	documentation
+dL	deciliter	unit
+decr	decreased	shorthand
+defib	defibrillation	shorthand
+diff	differential	shorthand
+dispo	disposition	shorthand
+dtr	deep tendon reflex	shorthand
+dx	diagnosis	documentation
+eGFR	estimated glomerular filtration rate	lab
+eval	evaluation	shorthand
+ext	extremities	anatomy
+f/u	follow-up	documentation
+freq	frequency	shorthand
+fx	fracture	shorthand
+gm	grams	unit
+gtt	drops (guttae)	medication
+gtts	drops (guttae)	medication
+heplock	heparin lock	shorthand
+hr	hour	unit
+ht	height	shorthand
+hx	history	documentation
+incr	increased	shorthand
+infxn	infection	shorthand
+irreg	irregular	shorthand
+kcal	kilocalorie	unit
+kg	kilograms	unit
+lat	lateral	imaging
+lb	pounds	unit
+mCi	millicurie	unit
+mEq	milliequivalent	unit
+mIU	milli-international unit	unit
+mL	milliliters	unit
+mOsm	milliosmoles	unit
+mcg	micrograms	unit
+meds	medications	shorthand
+mg	milligrams	unit
+mm	millimeters	unit
+mmHg	millimeters of mercury	unit
+mmol	millimoles	unit
+mosm	milliosmoles	unit
+neg	negative	shorthand
+neuro	neurological	anatomy
+ng	nanograms	unit
+nml	normal	shorthand
+nmol	nanomoles	unit
+npo	nothing by mouth (nil per os)	documentation
+occ	occasional	shorthand
+pCO2	partial pressure of carbon dioxide	lab
+pH	pH	lab
+pO2	partial pressure of oxygen	lab
+palp	palpable	shorthand
+pg	picograms	unit
+pos	positive	shorthand
+postop	postoperative	documentation
+preop	preoperative	documentation
+prn	as needed (pro re nata)	medication
+prog	prognosis	shorthand
+pt	patient	documentation
+pt	patient	shorthand
+q12h	every 12 hours	medication
+q4h	every 4 hours	medication
+q6h	every 6 hours	medication
+q8h	every 8 hours	medication
+r/o	rule out	shorthand
+rx	prescription	documentation
+s/p	status post	documentation
+sig	significant	shorthand
+subq	subcutaneous	shorthand
+sx	symptoms	documentation
+sxs	symptoms	shorthand
+tPA	tissue plasminogen activator	medication
+trach	tracheostomy	shorthand
+tx	treatment	documentation
+u/s	ultrasound	shorthand
+uL	microliters	unit
+umol	micromoles	unit
+w/	with	shorthand
+w/o	without	shorthand
+w/u	workup	documentation
+wnl	within normal limits	documentation
+wt	weight	shorthand
+y/o	year old	documentation
+yo	year old	documentation

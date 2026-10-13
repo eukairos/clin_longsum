@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<!-- clin_longsum - physician feedback loop
+     Copyright (C) 2026 Eukairos.  SPDX-License-Identifier: AGPL-3.0-only
+
+     TRIAGE BOARD. A projection of longsum_support, deliberately plain: lanes,
+     cards, a detail panel. No drag-and-drop, no WIP limits, no swimlanes. If
+     those are ever wanted, the answer is to adopt a real workflow tool and write
+     an adapter - which the outbox already makes a one-line change - not to grow
+     this into one. Keeping it dumb is what keeps it disposable. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ledger feedback - triage board</title>
+<style>
+:root {
+  --bg:#070b14; --surface:#0d1421; --surface2:#131c2e; --border:#1c2942;
+  --border2:#2a3b57; --text:#dfe7f5; --text-muted:#7c8ba6; --accent:#5aa9ff;
+  --urgent:#ff7b72; --urgent-bg:#2a1416; --ok:#5ddc9a; --warn:#e3b341;
+  --radius:6px; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+       font-size:14px; height:100vh; display:flex; flex-direction:column; }
+header { flex-shrink:0; padding:12px 18px; border-bottom:1px solid var(--border);
+         background:var(--surface); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+h1 { margin:0; font-family:var(--mono); font-size:15px; letter-spacing:.06em;
+     text-transform:uppercase; color:var(--accent); }
+.pill { font-family:var(--mono); font-size:11px; padding:3px 9px; border-radius:99px;
+        border:1px solid var(--border2); color:var(--text-muted); }
+.pill.urgent { color:var(--urgent); border-color:var(--urgent); background:var(--urgent-bg); }
+.pill.warn { color:var(--warn); border-color:var(--warn); }
+select, input, textarea, button { font-family:var(--sans); font-size:13px; }
+select, input, textarea { background:var(--surface2); border:1px solid var(--border2);
+        border-radius:var(--radius); color:var(--text); padding:6px 10px; }
+select:focus, input:focus, textarea:focus { outline:none; border-color:var(--accent); }
+button { border-radius:var(--radius); border:1px solid var(--border2); background:none;
+         color:var(--text-muted); padding:6px 13px; cursor:pointer; font-family:var(--mono); font-size:12px; }
+button:hover { color:var(--text); border-color:var(--accent); }
+button.primary { color:var(--ok); border-color:var(--ok); }
+button.danger { color:var(--urgent); border-color:var(--urgent); }
+button:disabled { opacity:.4; cursor:default; }
+
+#main { flex:1; display:flex; min-height:0; }
+#lanes { flex:1; display:flex; gap:11px; padding:14px; overflow-x:auto; min-height:0; }
+.lane { flex:0 0 250px; display:flex; flex-direction:column; min-height:0; }
+.lane h2 { margin:0 0 9px; font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+           text-transform:uppercase; color:var(--text-muted); display:flex; justify-content:space-between; }
+.lane-body { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.card { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border2);
+        border-radius:var(--radius); padding:9px 11px; cursor:pointer; }
+.card:hover { border-color:var(--accent); }
+.card.urgent { border-left-color:var(--urgent); }
+.card.sel { border-color:var(--accent); background:var(--surface2); }
+.card .top { display:flex; gap:7px; align-items:center; font-family:var(--mono);
+             font-size:10px; color:var(--text-muted); margin-bottom:5px; flex-wrap:wrap; }
+.card .fact { font-size:13px; line-height:1.45; }
+.card .foot { margin-top:6px; font-family:var(--mono); font-size:10px; color:var(--text-muted); }
+.tag { font-family:var(--mono); font-size:10px; padding:1px 6px; border-radius:3px;
+       border:1px solid var(--border2); }
+.tag.u { color:var(--urgent); border-color:var(--urgent); }
+.tag.t1 { color:var(--urgent); border-color:var(--urgent); }
+.tag.dup { color:var(--warn); border-color:var(--warn); }
+
+#detail { flex:0 0 460px; border-left:1px solid var(--border); background:var(--surface);
+          overflow-y:auto; padding:16px 18px; display:none; position:relative; }
+#detail.open { display:block; }
+#detail-close { position:sticky; top:0; float:right; margin:-6px -6px 0 8px; z-index:2;
+                background:var(--surface); border:none; color:var(--text-muted);
+                font-size:20px; line-height:1; padding:2px 7px; cursor:pointer; }
+#detail-close:hover { color:var(--urgent); border:none; }
+/* Narrow viewports: the panel becomes an overlay rather than squeezing the lanes
+   into unreadable slivers. */
+@media (max-width:1100px) {
+  #detail { position:absolute; right:0; top:0; bottom:0; flex:none; width:min(460px,92vw);
+            box-shadow:-18px 0 40px rgba(0,0,0,.5); z-index:20; }
+  #main { position:relative; }
+}
+#detail h3 { margin:0 0 3px; font-family:var(--mono); font-size:14px; color:var(--accent); }
+.sub { color:var(--text-muted); font-size:12px; margin-bottom:14px; }
+.blk { margin-bottom:15px; }
+.blk h4 { margin:0 0 7px; font-family:var(--mono); font-size:11px; letter-spacing:.07em;
+          text-transform:uppercase; color:var(--text-muted); }
+.quote { background:var(--surface2); border-left:3px solid var(--border2); padding:9px 12px;
+         border-radius:var(--radius); line-height:1.55; }
+.kv { display:grid; grid-template-columns:132px 1fr; gap:3px 10px; font-size:12.5px; }
+.kv div:nth-child(odd) { color:var(--text-muted); font-family:var(--mono); font-size:11px; }
+.ev { border-left:2px solid var(--border2); padding:4px 0 4px 11px; margin-bottom:7px;
+      font-size:12px; line-height:1.5; }
+.ev .when { font-family:var(--mono); font-size:10px; color:var(--text-muted); }
+.ev.rule { border-left-color:var(--warn); }
+.ev.phys { border-left-color:var(--accent); }
+.finding { background:var(--surface2); border-radius:var(--radius); padding:10px 12px;
+           font-size:12.5px; line-height:1.6; }
+.finding b { color:var(--accent); font-family:var(--mono); }
+.row { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.row > * { flex:0 0 auto; }
+textarea { width:100%; min-height:76px; line-height:1.55; resize:vertical; }
+#msg { font-size:12.5px; margin-top:9px; min-height:17px; }
+#msg.err { color:var(--urgent); } #msg.ok { color:var(--ok); }
+.empty { color:var(--text-muted); font-size:12px; padding:14px; text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ledger feedback</h1>
+  <span class="pill" id="pol">-</span>
+  <span class="pill urgent" id="urg" style="display:none"></span>
+  <span class="pill warn" id="gaps" style="display:none"></span>
+  <span style="flex:1"></span>
+  <select id="f-urgency" onchange="load()">
+    <option value="">all urgencies</option><option value="urgent">urgent only</option>
+    <option value="routine">routine only</option>
+  </select>
+  <select id="f-owner" onchange="load()">
+    <option value="">all owners</option><option value="clinician">clinician</option>
+    <option value="engineer">engineer</option>
+  </select>
+  <!-- Actions require a named person. The service refuses otherwise: a decision
+       with nobody accountable for it is not a decision. -->
+  <select id="actor"><option value="">- acting as -</option></select>
+  <button onclick="toggleMetrics()">metrics</button>
+  <button onclick="load()">refresh</button>
+</header>
+
+<div id="main">
+  <div id="lanes"></div>
+  <div id="detail"></div>
+</div>
+
+<script>
+const LANE_LABEL = { new:'New', triaged:'Triaged', contained:'Contained',
+                     in_progress:'In progress', resolved:'Resolved', closed:'Closed' };
+let CARDS = [], SEL = null, POLICY = null, ROSTER = [];
+
+// Draft answers, keyed by feedback_id. The panel is rebuilt from innerHTML on
+// every open, so anything typed would otherwise be lost the moment the user
+// clicks another card - or, before this, on every 30s auto-refresh. Losing a
+// half-written reply is the one thing most likely to make someone stop writing
+// replies at all, which is what the whole closed loop depends on.
+const DRAFTS = {};
+
+const esc = s => (s??'').toString().replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ago = t => { if(!t) return ''; const d=(Date.now()-new Date(t))/1000;
+  if(d<3600) return Math.round(d/60)+'m'; if(d<86400) return Math.round(d/3600)+'h';
+  return Math.round(d/86400)+'d'; };
+
+async function boot() {
+  try {
+    const r = await fetch('/tiered/feedback/physicians');
+    ROSTER = (await r.json()).physicians || [];
+    document.getElementById('actor').innerHTML = '<option value="">- acting as -</option>' +
+      ROSTER.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.role)})</option>`).join('');
+  } catch (e) { /* board still readable without a roster; actions will refuse */ }
+  try { POLICY = await (await fetch('/board/api/policy')).json(); } catch (e) {}
+  load();
+}
+
+// `withDetail` is false for the background refresh. Re-rendering the open panel
+// on a timer wipes the reply being typed, the chosen disposition and the scroll
+// position. The lanes and the header are safe to repaint - they hold no user
+// state - so only those refresh unattended.
+async function load(withDetail = true) {
+  const q = new URLSearchParams();
+  const u = document.getElementById('f-urgency').value;
+  const o = document.getElementById('f-owner').value;
+  if (u) q.set('urgency', u); if (o) q.set('owner', o);
+  const d = await (await fetch('/board/api/cards?' + q)).json();
+  CARDS = d.cards || [];
+  renderLanes(d.lanes || Object.keys(LANE_LABEL));
+  stats();
+  if (withDetail && SEL && !METRICS_OPEN) openCard(SEL);
+}
+
+// Closing must clear SEL, or the next refresh brings the panel straight back.
+function closeDetail() {
+  SEL = null;
+  METRICS_OPEN = false;
+  document.getElementById('detail').classList.remove('open');
+  renderLanes(Object.keys(LANE_LABEL));   // repaint to drop the selection highlight
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDetail();
+});
+
+function renderLanes(lanes) {
+  document.getElementById('lanes').innerHTML = lanes.map(ln => {
+    const cs = CARDS.filter(c => c.state === ln);
+    return `<div class="lane"><h2><span>${LANE_LABEL[ln]||ln}</span><span>${cs.length}</span></h2>
+      <div class="lane-body">${cs.map(cardHtml).join('') ||
+        '<div class="empty">&mdash;</div>'}</div></div>`;
+  }).join('');
+}
+
+function cardHtml(c) {
+  // n_same counts distinct patients carrying this defect signature. Surfaced on
+  // the card face because it is what separates an isolated slip from a
+  // systematic defect, and it changes how much a fix is worth.
+  const dup = c.n_same > 1 ? `<span class="tag dup">${c.n_same} patients</span>` : '';
+  const tier = c.salience_tier ? `<span class="tag ${c.salience_tier==='T1'?'t1':''}">${esc(c.salience_tier)}</span>` : '';
+  return `<div class="card ${c.urgency==='urgent'?'urgent':''} ${SEL===c.feedback_id?'sel':''}"
+      onclick="toggleCard(${c.feedback_id})">
+    <div class="top">#${c.feedback_id} <span>${esc(c.symptom)}</span> ${tier}
+      ${c.urgency==='urgent'?`<span class="tag u">${esc(c.urgency_rule_id||'urgent')}</span>`:''} ${dup}</div>
+    <div class="fact">${esc((c.fact_text||'(no row text)').slice(0,110))}</div>
+    <div class="foot">${esc(c.alias||'?')} &middot; ${(c.owner_roles||[]).join('+')} &middot; ${ago(c.created_at)}</div>
+  </div>`;
+}
+
+// Clicking the already-selected card closes the panel.
+function toggleCard(id) {
+  if (SEL === id && !METRICS_OPEN) { closeDetail(); return; }
+  openCard(id);
+}
+
+async function stats() {
+  const s = await (await fetch('/board/api/stats')).json();
+  document.getElementById('pol').textContent = s.policy_version || 'no policy';
+  const u = document.getElementById('urg');
+  u.style.display = s.urgent_open ? '' : 'none';
+  u.textContent = `${s.urgent_open} urgent open`;
+  // Loop health, in the header rather than buried. A loop that has quietly
+  // stopped answering looks exactly like a loop with nothing to do.
+  const g = document.getElementById('gaps');
+  const n = (s.gaps||[]).length + (s.stuck_outbox||[]).length;
+  g.style.display = n ? '' : 'none';
+  g.textContent = `${n} loop gap${n===1?'':'s'}`;
+}
+
+async function openCard(id) {
+  METRICS_OPEN = false;
+  const reopening = (SEL === id);
+  SEL = id;
+  const d = await (await fetch(`/board/api/cards/${id}`)).json();
+  const c = d.card;
+  const el = document.getElementById('detail');
+  // Re-rendering the same card (after an action, or an explicit refresh) resets
+  // scrollTop, which throws the reader back to the top of a long history.
+  const scroll = reopening ? el.scrollTop : 0;
+  el.classList.add('open');
+
+  const ev = (d.evidence[0]||{}).evidence || {};
+  const s1 = ev.s1_subclass ? `<b>${esc(ev.s1_subclass)}</b> &mdash; ${esc(ev.s1_reason||'')}`
+           : (ev.s1_reason ? esc(ev.s1_reason) : '');
+
+  // Where a reportedly-missing fact actually lives. `in_incoming_only` is the
+  // one to read carefully: the ledger is built from PRIOR admissions, so a fact
+  // sitting only in the incoming one is correctly absent and is not a defect.
+  const mp = ev.missing_probe;
+  const VERDICT = { in_incoming_only:['var(--ok)','S1e - not a defect, incoming admission only'],
+                    in_prior_unextracted:['var(--urgent)','S1a - extraction miss'],
+                    negated_only:['var(--ok)','Notes deny this'],
+                    not_in_source:['var(--ok)','Not in any source note'],
+                    ambiguous:['var(--warn)','Needs a human'] };
+  let probe = '';
+  if (mp && mp.verdict) {
+    const vd = VERDICT[mp.verdict] || ['var(--warn)', mp.verdict];
+    const rows = (mp.per_admission||[]).map(a =>
+      `<div>seq ${a.admit_seq}${a.is_incoming?' <b>incoming</b>':''}</div><div>coverage ${a.coverage}${a.negated?' <span style="color:var(--warn)">negated</span>':''} <span style="color:var(--text-muted)">${esc((a.matched||[]).join(', '))}</span></div>`).join('');
+    const nm = (mp.near_misses||[]).length
+      ? `<div style="margin-top:8px;color:var(--text-muted)">similar facts that WERE extracted: ${mp.near_misses.map(n=>esc(n.text)).join('; ')}</div>` : '';
+    probe = `<div class="finding" style="margin-top:8px">
+      <div style="color:${vd[0]};font-family:var(--mono);font-size:11px;margin-bottom:5px">${esc(vd[1])}</div>
+      ${esc(mp.reason||'')}
+      ${rows?`<div class="kv" style="margin-top:8px">${rows}</div>`:''}${nm}</div>`;
+  }
+  const art = ev.artifact || {};
+  // Two staleness signals, not one. `artifact_behind_code` catches the common
+  // case where nothing about this patient changed but the taxonomy in the code
+  // moved on - an entire class of already-fixed defects that comparing against
+  // tiered_view alone reads as current.
+  const stale = [];
+  if (art.taxonomy_moved_since_report || art.regenerated_since_report)
+    stale.push('This patient has been regenerated since the report');
+  if (art.artifact_behind_code)
+    stale.push(`Stored record predates the current taxonomy (${esc(art.stale_versus||'')})`);
+  const superseded = stale.length
+    ? `<div style="color:var(--warn);margin-top:7px">${stale.join('.<br>')}.
+        Consider <b>already_fixed</b>, or re-run and re-check.</div>` : '';
+
+  el.innerHTML = `
+    <button id="detail-close" title="Close (Esc)" onclick="closeDetail()">&times;</button>
+    <h3>#${c.feedback_id} &middot; ${esc(c.symptom)} ${c.s1_subclass?'/'+esc(c.s1_subclass):''}</h3>
+    <div class="sub">${esc(c.symptom_label||'')}</div>
+
+    <div class="blk"><div class="quote">${esc(c.fact_text||'(no row text)')}</div></div>
+
+    <div class="blk"><h4>Reported</h4>
+      <div class="quote" style="border-left-color:var(--accent)">${esc(c.report_text||'')}</div>
+      <div class="foot" style="margin-top:6px;font-size:11px;color:var(--text-muted)">
+        by ${esc(c.reporter_name_raw||'?')} &middot; ${esc((c.created_at||'').slice(0,16).replace('T',' '))}
+        ${c.clinical_action_flag?' &middot; <span style="color:var(--urgent)">clinical decision was made on this row</span>':''}
+        ${c.seen_other_patients?' &middot; seen on other patients':''}</div></div>
+
+    <div class="blk"><h4>Card</h4><div class="kv">
+      <div>patient</div><div>${esc(c.alias||'?')} <span style="color:var(--text-muted)">(${c.cohort||''} ${c.subject_id})</span></div>
+      <div>urgency</div><div>${esc(c.urgency)} ${c.urgency_rule_id?`<span class="tag u">${esc(c.urgency_rule_id)}</span>`:''}</div>
+      <div>owners</div><div>${(c.owner_roles||[]).join(', ')} ${c.acknowledged_by?'&middot; acknowledged':''}</div>
+      <div>defect class</div><div>${esc(c.defect_class||'unset')}</div>
+      <div>axes</div><div>${[c.salience_tier,c.retention_class,c.certainty,c.current_lifecycle].filter(Boolean).map(esc).join(' &middot; ')||'&mdash;'}</div>
+      <div>disputed</div><div>${esc(c.disputed_field||'&mdash;')}</div>
+      <div>taxonomy</div><div>${esc(c.taxonomy_version||'?')}</div>
+      <div>policy</div><div>${esc(c.policy_version||'?')}</div>
+      <div>same defect</div><div>${c.n_same>1?`<b>${c.n_same} patients</b>`:'1 patient'}
+        ${d.related.length?` (#${d.related.map(r=>r.feedback_id).join(', #')})`:''}</div>
+    </div></div>
+
+    ${(s1||probe||superseded) ? `<div class="blk"><h4>Evidence</h4>
+      <div class="finding">${s1||'fact could not be resolved to a fact_id'}${superseded}</div>
+      ${probe}</div>` : ''}
+
+    <div class="blk"><h4>History</h4>${d.events.map(e => `
+      <div class="ev ${e.actor_kind==='rule'?'rule':(e.actor_kind==='physician'?'phys':'')}">
+        <span class="when">${esc((e.created_at||'').slice(0,16).replace('T',' '))}</span>
+        &nbsp;${esc(e.event_type)}${e.rule_id?` <span class="tag u">${esc(e.rule_id)}</span>`:''}
+        ${e.actor?` &middot; ${esc(e.actor)}`:''}
+        ${e.note?`<div style="color:var(--text-muted);margin-top:2px">${esc(e.note)}</div>`:''}
+      </div>`).join('')}</div>
+
+    ${c.state==='closed'
+      ? `<div class="blk"><h4>Answered &mdash; ${esc(c.disposition)}</h4>
+           <div class="quote">${esc(c.reply_text||'')}</div>
+           ${c.fix_version?`<div class="foot" style="margin-top:6px;font-size:11px;color:var(--text-muted)">fix: ${esc(c.fix_version)}</div>`:''}
+         </div>`
+      : actionsHtml(c, d.suggestion)}
+
+    <div class="blk"><h4>Delivery</h4><div class="kv">
+      ${d.outbox.map(o => `<div>${esc(o.channel)}</div><div>${esc(o.state)}
+        ${o.template?`&middot; ${esc(o.template)}`:''}</div>`).join('') || '<div>&mdash;</div><div></div>'}
+    </div></div>
+    <div id="msg"></div>`;
+
+  if (scroll) el.scrollTop = scroll;
+}
+
+function actionsHtml(c, sug) {
+  const next = (POLICY?.states?.[c.state] || []).filter(s => s !== 'closed');
+  const dual = (c.owner_roles||[]).length > 1;
+
+  // Pre-written answer where the evidence settles it - but a draft the user has
+  // already started always wins over it. Suggestions are a starting point, and
+  // silently replacing typed text with a generated one would be worse than
+  // offering nothing.
+  const draft = DRAFTS[c.feedback_id] || {};
+  const replyVal = draft.reply !== undefined ? draft.reply : (sug?.reply_text || '');
+  const dispVal = draft.disp || (sug && sug.disposition) || '';
+  const disp = (POLICY?.dispositions || []).map(d =>
+    `<option value="${d.id}"${dispVal === d.id ? ' selected' : ''}>${d.id}</option>`).join('');
+
+  const sugNote = sug
+    ? `<div style="font-size:12px;margin-bottom:7px;color:${sug.confident?'var(--ok)':'var(--warn)'}">
+         Draft reply prepared from the evidence (${esc(sug.basis)}).
+         ${sug.confident ? 'Edit if you disagree, then send.'
+                         : 'VERIFY BEFORE SENDING &mdash; the evidence suggests this but does not settle it.'}
+       </div>` : '';
+
+  return `
+    <div class="blk"><h4>Move</h4><div class="row">
+      ${next.map(s => `<button onclick="act('transition',{to_state:'${s}'})">&rarr; ${LANE_LABEL[s]||s}</button>`).join('')}
+      <button onclick="act('recollect',{})">re-collect evidence</button>
+    </div>
+    <div class="row">
+      ${dual && !c.acknowledged_by
+        ? `<button onclick="act('acknowledge',{})">acknowledge as second owner</button>` : ''}
+      ${c.urgency==='urgent'
+        ? `<button class="danger" onclick="downgrade()">downgrade to routine</button>` : ''}
+      <button onclick="reassign()">reassign</button>
+    </div>
+    ${dual && !c.acknowledged_by
+      ? `<div style="color:var(--warn);font-size:12px;margin-top:5px">Owned by clinician and
+         engineer. The second owner must acknowledge before this can be closed &mdash; it
+         stops an ambiguous report being closed unilaterally into the wrong class.</div>` : ''}
+    </div>
+
+    <div class="blk"><h4>Answer and close</h4>
+      ${sugNote}
+      <div class="row"><select id="a-disp" onchange="saveDraft()">${disp}</select>
+        <input id="a-fix" placeholder="fix version (optional)" oninput="saveDraft()"
+               value="${esc(draft.fix || '')}" style="flex:1;min-width:150px"></div>
+      <textarea id="a-reply" oninput="saveDraft()" placeholder="What the reporter will be told. This is sent to them, and it is why they will report again.">${esc(replyVal)}</textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" onclick="closeCard()">send reply and close</button></div>
+    </div>`;
+}
+
+// Called on every keystroke and selection. Cheap, and it means a half-written
+// reply survives switching to another card to check something and coming back -
+// which is exactly when someone would otherwise lose it.
+function saveDraft() {
+  if (!SEL) return;
+  const r = document.getElementById('a-reply');
+  const d = document.getElementById('a-disp');
+  const f = document.getElementById('a-fix');
+  if (!r) return;
+  DRAFTS[SEL] = { reply: r.value, disp: d ? d.value : '', fix: f ? f.value : '' };
+}
+
+function actor() {
+  const v = document.getElementById('actor').value;
+  return v ? parseInt(v) : null;
+}
+
+async function act(action, body) {
+  const a = actor();
+  if (!a) return msg('Choose who you are acting as (top right).', 'err');
+  const r = await fetch(`/board/api/cards/${SEL}/action`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action, actor_id:a, ...body})
+  });
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) return msg(d.detail || `HTTP ${r.status}`, 'err');
+  // The card is now saved server-side, so the local draft is spent. Keeping it
+  // would re-prefill a closed card with the text that closed it, or shadow a
+  // fresher suggestion after a re-collect.
+  if (action === 'close' || action === 'recollect') delete DRAFTS[SEL];
+  msg('Done.', 'ok');
+  load();
+}
+
+function closeCard() {
+  const reply = document.getElementById('a-reply').value.trim();
+  if (!reply) return msg('Write the reply first. Nothing closes without an answer to the reporter.', 'err');
+  act('close', { disposition: document.getElementById('a-disp').value,
+                 reply_text: reply,
+                 fix_version: document.getElementById('a-fix').value.trim() || null });
+}
+
+function downgrade() {
+  const why = prompt('Urgency was set by a rule. Why is this not urgent?');
+  if (why && why.trim()) act('urgency', { urgency:'routine', note:why.trim() });
+}
+
+function reassign() {
+  const who = prompt('Reassign to (clinician, engineer, or both comma-separated):', 'engineer');
+  if (!who) return;
+  const why = prompt('Why?');
+  if (!why || !why.trim()) return;
+  act('reassign', { owner_roles: who.split(',').map(s=>s.trim()).filter(Boolean),
+                    note: why.trim() });
+}
+
+// ---- metrics ----------------------------------------------------------------
+// Deliberately shows the readings that INDICT something, not just counts. A
+// panel of numbers that can only look good is decoration; each of these has an
+// interpretation that says the loop, the policy or the guide is failing.
+let METRICS_OPEN = false;
+
+async function toggleMetrics() {
+  if (METRICS_OPEN) { closeDetail(); return; }
+  METRICS_OPEN = true;
+  SEL = null;
+  renderLanes(Object.keys(LANE_LABEL));
+  const el = document.getElementById('detail');
+  el.classList.add('open');
+  el.innerHTML = '<div class="sub">loading metrics&hellip;</div>';
+  let m;
+  try { m = await (await fetch('/board/api/metrics')).json(); }
+  catch (e) { el.innerHTML = `<div class="sub">metrics unavailable: ${esc(e.message)}</div>`; return; }
+
+  const kv = o => Object.entries(o||{}).map(([k,v]) =>
+    `<div>${esc(k)}</div><div>${esc(v)}</div>`).join('') || '<div>&mdash;</div><div></div>';
+  const flag = (txt, bad) =>
+    `<span style="color:${bad?'var(--warn)':'var(--text-muted)'}">${esc(txt)}</span>`;
+
+  el.innerHTML = `
+    <button id="detail-close" title="Close (Esc)" onclick="closeDetail()">&times;</button>
+    <h3>Loop metrics</h3>
+    <div class="sub">${esc(m.policy_version||'')} &middot; ${m.window_days}d window</div>
+
+    <div class="blk"><h4>Volume</h4><div class="kv">
+      <div>total</div><div>${m.total}</div>
+      <div>open / closed</div><div>${m.open} / ${m.closed}</div>
+      <div>by symptom</div><div>${esc(JSON.stringify(m.by_symptom||{}))}</div>
+    </div></div>
+
+    <div class="blk"><h4>Responsiveness</h4><div class="kv">
+      <div>h to 1st action</div><div>${m.hours_to_first_human_action ?? '&mdash;'}</div>
+      <div>h to disposition</div><div>${m.hours_to_disposition ?? '&mdash;'}</div>
+      <div>oldest open (d)</div><div>${m.oldest_open_days ?? '&mdash;'}</div>
+    </div></div>
+
+    <div class="blk"><h4>Disposition</h4><div class="kv">${kv(m.by_disposition)}</div>
+      <div style="margin-top:7px;font-size:12px">by_design share
+        ${flag(m.by_design_share ?? 'n/a', (m.by_design_share||0) > 0.3)}
+        &mdash; ${esc(m.by_design_reading||'')}</div></div>
+
+    <div class="blk"><h4>Policy calibration</h4>
+      <div style="font-size:12px;margin-bottom:7px">urgent share
+        ${flag(m.urgent_share ?? 'n/a', (m.urgent_share||0) > 0.5)}
+        &mdash; ${esc(m.urgent_reading||'')}</div>
+      <div class="kv">${kv(m.rule_fire_counts)}</div>
+      ${(m.urgent_closed_as_non_defect||[]).map(u =>
+        `<div style="color:var(--warn);font-size:12px;margin-top:6px">${esc(u.rule)}
+          fired on ${u.n} card(s) closed as ${esc(u.disposition)} &mdash; gate may be
+          over-firing</div>`).join('')}</div>
+
+    <div class="blk"><h4>Systematic defects</h4>
+      ${(m.systematic||[]).map(s => `<div class="ev">
+        <b>${s.n_patients} patients</b> &middot; ${s.n_reports} reports &middot; ${s.open} open
+        <div style="color:var(--text-muted)">${esc(s.example)}</div></div>`).join('')
+        || '<div class="sub">none affecting more than one patient</div>'}
+      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Each of these is
+        one scoped fix, not several conversations.</div></div>
+
+    <div class="blk"><h4>Evidence</h4><div class="kv">
+      ${kv(m.s1_subclass_mix)}${kv(m.probe_verdicts)}</div></div>
+
+    <div class="blk"><h4>Loop integrity</h4><div class="kv">
+      <div>undeliverable</div><div>${flag(m.unmatched_reporters, m.unmatched_reporters>0)}</div>
+      <div>closed, no email</div><div>${flag(m.closed_without_delivery, m.closed_without_delivery>0)}</div>
+      <div>loop gaps</div><div>${flag((m.gaps||[]).length, (m.gaps||[]).length>0)}</div>
+      <div>stuck outbox</div><div>${flag((m.stuck_outbox||[]).length, (m.stuck_outbox||[]).length>0)}</div>
+      ${kv(m.outbox)}
+    </div></div>`;
+}
+
+function msg(t, kind) {
+  const m = document.getElementById('msg');
+  if (m) { m.textContent = t; m.className = kind || ''; }
+}
+
+boot();
+// Background refresh: lanes and header only. Never the open panel - see load().
+setInterval(() => load(false), 30000);
+</script>
+</body>
+</html>
