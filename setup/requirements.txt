@@ -1,0 +1,47 @@
+# clin_longsum -- Python dependencies
+# Python 3.10+ recommended (the codebase uses `str | None` union syntax and
+# `X | Y` type hints). Versions below are floors known to work with the stack;
+# review/pin to your environment before a production install.
+#
+#   pip install -r setup/requirements.txt
+#
+# NOTE: torch with CUDA is best installed from the official index for your CUDA
+# build, e.g.:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+# then `pip install -r setup/requirements.txt` for the rest.
+
+# ── Local LLM inference (Ollama) ────────────────────────────────────────────────
+# Generation + judge models run locally (the DUA bars external-API LLMs). The
+# Ollama server itself is installed separately (https://ollama.com); this is the
+# Python client only. Pull the models named in config.py before running:
+#   ollama pull ornith:35b          # generation (all roles)
+#   ollama pull deepseek-r1:32b     # judge / faithfulness validation
+ollama=0.32.1
+httpx>=0.27.0            # faithfulness_validator streams judge calls via its own client
+
+# ── Embeddings (RAG + incoming vector) ──────────────────────────────────────────
+# Snowflake/snowflake-arctic-embed-l-v2.0 via sentence-transformers.
+# Do NOT pass trust_remote_code=True (unsupported); the model loads without it.
+sentence-transformers>=3.0.0
+torch>=2.2.0
+
+# ── Postgres (source-of-truth record + pgvector) ────────────────────────────────
+psycopg2-binary>=2.9.9
+pgvector>=0.3.0
+python-dotenv>=1.0.0
+
+# ── Data / numerics ─────────────────────────────────────────────────────────────
+numpy>=1.26.0
+pandas>=2.1.0,<3.0
+datasketch>=1.6.4       # a2_build_cohort: MinHash/Jaccard cross-admission dedup
+tqdm>=4.66.0
+
+# ── FastAPI review service ──────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.6.0
+
+# ── Optional ────────────────────────────────────────────────────────────────────
+paho-mqtt>=2.0.0        # c5_review_queue: physician notify (fire-and-forget; safe to omit)
+statsmodels>=0.14.0     # studies/position_bias regression (falls back to scikit-learn)
+scikit-learn>=1.4.0     # position_bias fallback; not required by the core pipeline

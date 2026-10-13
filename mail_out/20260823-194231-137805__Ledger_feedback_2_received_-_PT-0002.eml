@@ -1,0 +1,32 @@
+From: longsum-feedback@example.invalid
+To: Dr Tan Wei Ming <tan.weiming@example.invalid>
+Subject: [Ledger feedback] #2 received - PT-0002
+Date: Sun, 23 Aug 2026 11:42:31 +0000
+X-Longsum-Sensitivity: patient-information; internal-only
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+This email contains patient information. Internal distribution only. Do not f=
+orward outside the network.
+
+--------------------------------------------------------------------
+
+Your report has been received and routed to: clinician.
+
+  Report #2
+  Patient: PT-0002
+  Row:     Pacemaker
+  Issue:   A fact is labelled wrongly (tier, class, certainty, or status)
+
+You do not need to do anything further. You will be emailed when it is
+answered, including if the answer turns out to be that the system is working
+as designed.
+
+If this matters for PT-0002 now, correct the paragraph as well as
+reporting the row: the report fixes it for future patients, the paragraph
+fixes it for this one.
+
+--------------------------------------------------------------------
+This email contains patient information. Internal distribution only. Do not f=
+orward outside the network.

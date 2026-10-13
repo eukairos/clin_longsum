@@ -1,0 +1,398 @@
+# clin_longsum - physician feedback loop
+# Copyright (C) 2026 Eukairos
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# ==============================================================================
+# TRIAGE POLICY - GOVERNANCE OBJECT
+# ==============================================================================
+# This file is the SOURCE OF TRUTH for how a physician's ledger report is
+# classified, prioritised and routed. It is governed exactly like
+# retention_taxonomy.py: bump `version`, append to CHANGELOG below, and obtain
+# clinical sign-off before promotion. Engineering may PROPOSE changes here; only
+# the clinical owner ratifies them, because "what counts as urgent" is a clinical
+# governance call, not an engineering one.
+#
+# SPLIT OF CONCERNS
+#   - This file holds PARAMETERS and HUMAN-READABLE INTENT.
+#   - src/support/triage.py holds the LOGIC, one function per rule id.
+#   A rule id present here with no implementation is a hard error at load; an
+#   implementation with no entry here is likewise a hard error. Neither half can
+#   drift silently from the other.
+#
+# NO LLM IS INVOLVED IN TRIAGE.
+#   Every decision below is deterministic SQL or a boolean over captured fields.
+#   That is a deliberate design choice, not a limitation:
+#     - a deterministic policy REPLAYS EXACTLY over every historical card, so a
+#       proposed rule change can be diffed against all prior decisions before
+#       promotion (an LLM policy could only be sampled and audited);
+#     - it passes clinical governance and IT security review without requiring a
+#       conversation about model behaviour;
+#     - it removes VRAM contention with the fold-in cascade on the shared GPU.
+#   A `TriageEngine` seam exists in triage.py so an LLM assist can be added at
+#   scale without touching the domain core.
+#
+# PROJECTION
+#   `symptoms` below is projected into support DB table `symptom_catalog` at
+#   bootstrap so the review UI can populate its picker from the DB. The FILE is
+#   authoritative; the table is a cache stamped with `policy_version`. Same
+#   pattern as holdout.promote() writing `promotions` then projecting the CSV.
+# ==============================================================================
+
+version: "triage_policy.v1.2"
+
+changelog:
+  - version: "triage_policy.v1.2"
+    date: "2026-08-23"
+    author: "Eukairos"
+    status: "ACTIVE - clinical sign-off 2026-08-23"
+    notes: >
+      Added S1e ("present only in the incoming admission") as a first-class S1
+      sub-class. The ledger is built from PRIOR admissions, so a fact documented
+      only in the incoming admission is correctly absent and appears once that
+      admission is folded in. From the physician's seat this is indistinguishable
+      from a genuine extraction miss, and it is expected to be one of the most
+      common reports - the distinction is invisible in the review UI.
+      It is detected deterministically by evidence.missing_fact_probe(), which
+      scores every admission's source note separately and knows which one is
+      incoming. No model is involved: the discriminator is structural, not
+      semantic.
+      S1e is NOT a defect. Its defect_class is `documentation`, and the standing
+      answer is by_design. A rising S1e rate means the interface is failing to
+      distinguish the incoming admission from the established record - the fix is
+      in the UI and the guide, not the pipeline.
+      Also in this release: the same probe now resolves S1a, which was previously
+      unreachable. S1a fired only when a fact_id resolved but was absent from
+      retention_facts - a combination that cannot occur, because resolution
+      falls back to matching against retention_facts itself. Genuine extraction
+      misses were therefore landing as "unresolved".
+
+  - version: "triage_policy.v1.1"
+    date: "2026-08-23"
+    author: "Eukairos"
+    status: "SUPERSEDED by v1.2"
+    notes: >
+      RETIRED S8 ("the same thing appears more than once"). Duplicate rows are
+      widespread and already known, so a symptom code for them would generate
+      high-volume reports carrying no information the dev team does not have -
+      and a picker option that is answered "we know" every time teaches
+      physicians that reporting is pointless, which costs far more than the
+      duplicates do.
+      Symptom ids are NOT renumbered: S9-S12 keep their ids so historical cards
+      stay readable and the replay harness stays meaningful. S8 is retired, not
+      reused - a future symptom takes S13.
+      CONSEQUENCE TO WATCH: retiring the code does not retire the observation.
+      Duplicates will now be filed as S99 ("not sure") or S10 ("displayed
+      wrongly"), and S99 is dual-owned, so the spillover is more expensive per
+      report than S8 was. The mitigation is documentary, not technical: state in
+      HOW_TO_READ_THE_LEDGER.md that duplicate rows are a known limitation and
+      need not be reported. If S99 volume rises with duplicate reports, the guide
+      is failing, not the policy.
+
+  - version: "triage_policy.v1.0"
+    date: "2026-08-23"
+    author: "Eukairos"
+    status: "SUPERSEDED by v1.1"
+    notes: >
+      Initial policy. Symptoms S1-S12 plus S99, urgency rules U-1 to U-7,
+      deterministic routing. Replaces the earlier proposal in which physicians
+      self-declared urgency (rejected: everything would be reported urgent) and
+      in which an LLM adjudicated a residual (rejected: determinism gives exact
+      replay over historical cards).
+      Sign-off decisions: S99 escape hatch ADOPTED; U-5 window ADOPTED as
+      2 distinct subjects / 30 days at T1-T2, to be recalibrated once real
+      report volume exists; S4 assigned to clinician alone rather than dual
+      ownership, with explicit reassignment to engineer on rendering faults.
+# ------------------------------------------------------------------------------
+# SYMPTOMS
+# ------------------------------------------------------------------------------
+# `physician_label` is the exact wording shown in the review UI picker. Physicians
+# must never be asked which pipeline stage is at fault; they report what they SEE.
+# `owner_roles` is the routing target. Where two roles are listed, BOTH own the
+# card: either may work it, but disposition requires one owner's classification
+# plus the other's acknowledgement, so it cannot be closed unilaterally into the
+# wrong class.
+# `defect_class_hint` is a prior, not a verdict. The owner sets the real class at
+# disposition.
+# ------------------------------------------------------------------------------
+
+symptoms:
+  - id: S1
+    physician_label: "A fact is missing that should be there"
+    owner_roles: [clinician, engineer]
+    defect_class_hint: null          # genuinely ambiguous - see s1_subclass below
+    notes: >
+      The most common and most ambiguous report. Do NOT route on the hint; the
+      evidence collector resolves it deterministically to S1a-S1d first.
+
+  - id: S2
+    physician_label: "Something is stated that is not in the notes"
+    owner_roles: [engineer]
+    defect_class_hint: engineering_routing
+    notes: "Most reported fabrications are synonymy. Grep bhc_text before disposition."
+
+  - id: S3
+    physician_label: "A fact is labelled wrongly (tier, class, certainty, or status)"
+    owner_roles: [clinician]
+    defect_class_hint: clinical_taxonomy
+
+  - id: S4
+    physician_label: "A fact reads as the opposite of the truth (absent / resolved / surveillance)"
+    owner_roles: [clinician]
+    defect_class_hint: clinical_taxonomy
+    notes: >
+      Clinician-owned (v1.0 sign-off). The underlying cause may be either
+      taxonomy (merge_negative_kind) or rendering (the badge in ledgerTable),
+      but polarity is a clinical judgement first: whether the row asserts the
+      opposite of the truth is not a question engineering can answer. Where the
+      evidence shows a rendering fault, the clinician REASSIGNS to engineer -
+      an explicit, logged handoff rather than standing dual ownership.
+      Note that S4 remains an urgency trigger at T1/T2 (U-2) regardless of owner.
+
+  - id: S5
+    physician_label: "Two conditions are merged into one row, or one condition is split across rows"
+    owner_roles: [engineer]
+    defect_class_hint: engineering_routing
+    notes: "FM-7 territory. Check artifact generated_at against the v2.11 split fix."
+
+  - id: S6
+    physician_label: "A rollup is too coarse - I need the individual episodes"
+    owner_roles: [clinician]
+    defect_class_hint: clinical_taxonomy
+    notes: "Often by design (T4 recurrent_episode). A repeat S6 means the guide is failing."
+
+  - id: S7
+    physician_label: "A date is wrong, or rows are in the wrong order"
+    owner_roles: [engineer]
+    defect_class_hint: engineering_routing
+    notes: "Check the known e1 dayfirst date-swap defect before anything else."
+
+  # S8 RETIRED in v1.1 - duplicate rows are a known, widespread limitation, and a
+  # picker option answered "we already know" every time teaches physicians that
+  # reporting is pointless. The id is retired, not reused; a future symptom takes
+  # S13. See the v1.1 changelog entry for the S99 spillover this creates.
+
+  - id: S9
+    physician_label: "The paragraph and the ledger disagree"
+    owner_roles: [engineer]
+    defect_class_hint: engineering_routing
+
+  - id: S10
+    physician_label: "Something is displayed wrongly or is unreadable"
+    owner_roles: [engineer]
+    defect_class_hint: engineering_routing
+
+  - id: S11
+    physician_label: "This does not belong to this patient"
+    owner_roles: [engineer]
+    defect_class_hint: engineering_routing
+    notes: "Also a privacy incident, not only a defect. Always urgent (U-4)."
+
+  - id: S12
+    physician_label: "This is working as intended, and the intent is wrong"
+    owner_roles: [clinician]
+    defect_class_hint: clinical_taxonomy
+
+  - id: S99
+    physician_label: "Not sure - something is wrong with this row"
+    owner_roles: [clinician, engineer]
+    defect_class_hint: null
+    notes: >
+      Deliberate escape hatch. Without it a physician forced to choose will pick
+      the nearest wrong code and defeat the routing. Costs one dual-owned card;
+      buys an honest signal.
+
+# ------------------------------------------------------------------------------
+# S1 SUB-CLASSIFICATION - deterministic, four indexed queries, no LLM
+# ------------------------------------------------------------------------------
+# Resolved by support/evidence.py against the CLINICAL database, read-only, in
+# this order. First match wins. The result pre-fills the card; both owners remain.
+# ------------------------------------------------------------------------------
+
+s1_subclass:
+  - id: S1a
+    test: "fact_id absent from retention_facts"
+    meaning: "b1 extraction miss"
+    defect_class: prompt_wording
+    cost_note: "Most expensive tier - a b1 prompt change is cohort-wide re-extraction."
+  - id: S1b
+    test: "fact_id present in retention_dropped"
+    meaning: "pruned by the taxonomy gate"
+    defect_class: clinical_taxonomy
+    cost_note: >
+      Cheap. retention_dropped.reason carries prune_reason() output and the
+      taxonomy_version that decided it - the branch names itself.
+  - id: S1c
+    test: "fact_id in tiered_ledger_raw.fact_ids but not tiered_ledger.fact_ids"
+    meaning: "absorbed by b4 consolidation"
+    defect_class: engineering_routing
+    cost_note: "Cheap. tiered_ledger_raw is the lossless pre-consolidation ledger."
+  - id: S1d
+    test: "fact_id in tiered_ledger.fact_ids"
+    meaning: "present - display issue, or the physician read past it"
+    defect_class: documentation
+    cost_note: "Not a miss. Close by-design, and fix the guide or the display."
+  - id: S1e
+    test: >
+      no fact_id resolves, and missing_fact_probe scores the INCOMING admission's
+      source note >= 0.6 while every prior admission scores below it
+    meaning: "documented only in the incoming admission - not yet folded in"
+    defect_class: documentation
+    cost_note: >
+      NOT A DEFECT and needs no fix. The ledger covers prior admissions only, so
+      the fact is correctly absent and will appear after fold-in. Standing answer
+      is by_design. Watch the rate: if it climbs, the review interface is failing
+      to separate the incoming admission from the established record, and that is
+      a UI and documentation fix rather than a pipeline one.
+
+# ------------------------------------------------------------------------------
+# URGENCY
+# ------------------------------------------------------------------------------
+# Urgency means: HOW FAST MUST THE WRONG OUTPUT STOP REACHING A READER.
+# It is NOT how wrong the row is, and NOT how much the fix costs. Decoupling
+# these is what lets an urgent card be CONTAINED in minutes (Tier 3 pin-and-edit
+# for the patient in front of the physician, or a display suppression if
+# systematic) while the source fix ships on the normal release cadence.
+#
+# Physicians do NOT declare urgency. They answer two questions of FACT, which do
+# not inflate the way a severity dial does:
+#   clinical_action_flag  - "A clinical decision was made, or nearly made, on this row."
+#   seen_other_patients   - "I have seen this on other patients."
+#
+# Every urgent verdict MUST name the rule that fired. A card marked urgent with
+# no rule id is rejected by the domain service and falls back to routine.
+# Only a named human may downgrade an urgent card, and the downgrade is appended
+# to feedback_events. The asymmetry is deliberate: wrongly holding a card costs
+# attention, wrongly releasing one costs a patient.
+# ------------------------------------------------------------------------------
+
+urgency:
+  default: routine
+
+  rules:
+    - id: U-1
+      description: "A T1 fact is reported missing from the summary."
+      params:
+        symptoms: [S1]
+        tiers: [T1]
+
+    - id: U-2
+      description: "A T1 or T2 row reads as the opposite of the truth."
+      params:
+        symptoms: [S4]
+        tiers: [T1, T2]
+
+    - id: U-3
+      description: >
+        Safety lifecycle inversion - a superseded allergy shown active, or a
+        current directive shown superseded.
+      params:
+        symptoms: [S3]
+        tiers: [T1]
+        disputed_fields: [current_lifecycle]
+
+    - id: U-4
+      description: "A row belongs to another patient. Also a privacy incident."
+      params:
+        symptoms: [S11]
+
+    - id: U-5
+      description: >
+        The same defect signature has now been reported on 2+ distinct subjects
+        at T1 or T2 within the lookback window - i.e. it is systematic.
+      params:
+        tiers: [T1, T2]
+        distinct_subjects_threshold: 2
+        lookback_days: 30
+
+    - id: U-6
+      description: "The reporter states a clinical decision was made, or nearly made, on this row."
+      params:
+        field: clinical_action_flag
+
+    - id: U-7
+      description: "Text not present in the source notes is reported on a T1 or T2 row."
+      params:
+        symptoms: [S2]
+        tiers: [T1, T2]
+
+# ------------------------------------------------------------------------------
+# DEDUPLICATION
+# ------------------------------------------------------------------------------
+# Matching cards are LINKED, never merged away. The repeat count across distinct
+# subjects is the systematic-defect detector (U-5) and collapsing duplicates
+# destroys it.
+# ------------------------------------------------------------------------------
+
+dedup:
+  key_fields: [symptom, retention_class, salience_tier, normalized_fact_text]
+  normalizer: "casefold, collapse whitespace, strip trailing punctuation"
+  hash: "sha1, first 16 hex chars"
+
+# ------------------------------------------------------------------------------
+# STATE MACHINE
+# ------------------------------------------------------------------------------
+# `state` is lifecycle position; `disposition` is the verdict, set once on the
+# transition into `closed`. Keeping them separate is what lets a board tool be
+# swapped without remapping verdicts onto someone else's lane names.
+#
+# NOTHING may enter `closed` without reply_text. That single constraint is the
+# whole closed loop: it is why a physician who reports gets an answer, including
+# when the answer is "no change" or "we could not reproduce it".
+# ------------------------------------------------------------------------------
+
+states:
+  - id: new
+    to: [triaged]
+  - id: triaged
+    to: [in_progress, contained, closed]
+  - id: contained
+    to: [in_progress, closed]
+    notes: "Patient-level mitigation applied (Tier 3 pin/edit, or display suppression)."
+  - id: in_progress
+    to: [resolved, contained, closed]
+  - id: resolved
+    to: [closed]
+    notes: "Fix shipped in a named version and verified."
+  - id: closed
+    to: []
+    terminal: true
+
+dispositions:
+  - id: accepted_taxonomy
+    owner_role: clinician
+    notes: "Fix ships as a versioned taxonomy release. Reuses retention_facts.jsonl."
+  - id: accepted_engineering
+    owner_role: engineer
+  - id: accepted_prompt
+    owner_role: engineer
+    notes: "Most expensive. Cohort-wide re-extraction; scope with the affected-set query."
+  - id: by_design
+    owner_role: clinician
+    notes: "Close by changing the guide or the UI label, never by explaining it to one reporter."
+  - id: not_reproducible
+    owner_role: engineer
+  - id: already_fixed
+    owner_role: engineer
+    notes: "Report is against an artifact generated under a superseded version."
+  - id: duplicate
+    owner_role: engineer
+    notes: "Still gets a written reply. Link, do not merge."
+
+# ------------------------------------------------------------------------------
+# NOTIFICATION
+# ------------------------------------------------------------------------------
+# Assumed deployment is an air-gapped intranet corporate mail system, so replies
+# may carry clinical text. Two safeguards stand regardless:
+#   - patients are referenced by SYNTHETIC ALIAS (PT-nnnn), never subject_id;
+#   - the POC default sink is `file`, which writes .eml to disk and transmits
+#     nothing. A test cohort that emails a real person is a bug.
+# The cc role gets a digest, not a per-card push. Per-card notification to both
+# parties is ignored within a month, which defeats the concurrent-awareness aim.
+# ------------------------------------------------------------------------------
+
+notification:
+  reporter_on_receipt: immediate
+  reporter_on_disposition: immediate
+  cc_role: digest
+  digest_cadence: weekly
+  patient_reference: alias_only

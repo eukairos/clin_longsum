@@ -1,0 +1,30 @@
+From: longsum-feedback@example.invalid
+To: Dr Tan Wei Ming <tan.weiming@example.invalid>
+Subject: [Ledger feedback] #4 accepted - fix scheduled
+Date: Sun, 23 Aug 2026 11:42:31 +0000
+X-Longsum-Sensitivity: patient-information; internal-only
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+This email contains patient information. Internal distribution only. Do not f=
+orward outside the network.
+
+--------------------------------------------------------------------
+
+Accepted. You were right.
+
+  Report #4
+  Patient: PT-0001
+  Row:     PICC line in place at discharge
+
+Confirmed as a taxonomy classification defect: the fact was pruned at the led=
+ger-membership gate. Fix ships in v2.13.
+
+The fix will ship in retention_taxonomy.v2.13.
+Until then, correct the paragraph directly for any affected patient in front
+of you.
+
+--------------------------------------------------------------------
+This email contains patient information. Internal distribution only. Do not f=
+orward outside the network.
