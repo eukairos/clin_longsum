@@ -1,9 +1,7 @@
 # Clinical tuning points for governance — clin_longsum
 
-*Last technical review: 2026-07-30. Taxonomy version at review: `retention_taxonomy.v2.11`.*
-
 **Purpose.** This document lists every setting in the pipeline that encodes a
-**clinical judgment call** — as opposed to a plain engineering choice. Every row here should be *owned*
+**clinical judgment call** - as opposed to a plain engineering choice. Every row here should be *owned*
 by clinicians or their governance board. 
 
 Two ownership tags are used throughout:
@@ -12,11 +10,11 @@ Two ownership tags are used throughout:
 - **[RATIFY]** — the build team picked a working default to get the pilot
   running. It needs your review: confirm it, or change it.
 
-Expect some of these to differ **by site** — a tertiary oncology centre and a
+Expect some of these to differ by site — a tertiary oncology centre and a
 community hospital will reasonably set different tolerances for how much
 missing information or how much AI uncertainty is acceptable. 
 
-**A few terms used throughout**, for anyone newer to how this kind of system
+A few terms used throughout, for anyone newer to how this kind of system
 works:
 - **AI model / "the model"** — the language model doing the reading and
   writing. There are two in this pipeline: one that drafts and summarizes, and
@@ -45,7 +43,7 @@ judgments.
 | **[DECIDE] How strongly the top rank should dominate** the overall "did we retain what matters" score | Should one missed critical fact swamp the whole score, or can it be averaged away by dozens of minor facts retained correctly? | Get the balance wrong and either the score is meaningless noise, or one edge case blocks every release |
 | **[DECIDE] Which categories are always kept no matter what**, regardless of context (e.g. a severe drug allergy) | Which facts carry top priority even if the AI mis-labels their usual category | A category that should never be lost gets treated as routine, or over-protecting everything makes the system impossible to satisfy |
 | **[DECIDE] "Safety-net" categories** — allergy status, code status (resuscitation wishes), infection-control status | Which categories are safety-critical enough to survive even if the AI mislabels other details about them | A missed allergy or resuscitation-status entry reaching a clinician is a direct patient-safety risk |
-| **[RATIFY] How a documented *absence* is handled** — e.g. "no evidence of TB" — including which kinds of absence matter enough to keep | The system distinguishes: a true absence/negative test; a resolved-but-still-relevant past event (e.g. a prior blood clot); and an incidental finding under active surveillance.* | A clinician re-investigates something already settled, or a meaningful "ruled out" finding is lost entirely |
+| **[RATIFY] How a documented *absence* is handled** — e.g. "no evidence of TB" — including which kinds of absence matter enough to keep | The system distinguishes: a true absence/negative test; a resolved-but-still-relevant past event (e.g. a prior blood clot); and an incidental finding under active surveillance. | A clinician re-investigates something already settled, or a meaningful "ruled out" finding is lost entirely |
 | **[DECIDE] When a repeat episode is really a red flag, not routine recurrence** | Should a cancer recurrence, organ rejection, or similar severe repeat event be shown as its own story, or folded into a routine "happened again" tally? | A serious recurrence gets compressed into a frequency count and loses its narrative |
 | **[DECIDE]** *How complete is that recurrence protection list?* | The system now has a fixed, developer-maintained list of severe events (cancer recurrence, organ rejection, status epilepticus, gangrene, graft/stent blockage) that are automatically protected from being buried in a recurrence tally. Less severe *chronic-disease* flare-ups are not on this list — such as recurrent COPD flareups, hypoglycemic/hyperglycemic episodes. | Should clinicians be able to nominate additional conditions for this protected list, or is case-by-case triage (dismiss/escalate per instance) an acceptable long-term answer? Currently: case-by-case only |
 | **[DECIDE]** *Should a "suspected but resolved" major event ever stop needing review?* | A suspected major event that later turned out to have resolved (e.g. a possible heart attack that turned out not to be one) still stays flagged for physician review indefinitely, with no automatic expiry | If left unbounded, minor historical false alarms may accumulate as permanent review items with no way to age them out |
@@ -219,6 +217,4 @@ to the exact place it should be changed — verified live against `src/`.
 | **G** — validation population | `setup/DATA_PREP.md`, `cohort.py` | MIMIC-IV + MIMIC-IV-Ext-BHC only | |
 | **G** — tested admission-count range | `a2_build_cohort.py` | `BANDS`, `CAP_MAX` constants | controls the stratified draw shape/size |
 
-If a row above says "no code lever found" or "no current standing script,"
-that's a live gap, not a documentation gap — worth confirming with the build
-team rather than assuming it exists somewhere unread.
+
