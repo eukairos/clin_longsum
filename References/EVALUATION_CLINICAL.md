@@ -13,7 +13,7 @@ governance board.
 
 The system builds one longitudinal view per patient from their past admissions: a TL;DR, the
 current episode, recent admissions in full prose, older admissions compacted into a short
-narrative, and a **retention ledger** -- an itemised, auditable list of the facts judged worth
+narrative, and a **retention ledger** - an itemised, auditable list of the facts judged worth
 carrying forward for life.
 
 Three things can go wrong:
@@ -26,26 +26,26 @@ Three things can go wrong:
 
 The evaluation is built around that ranking. Omission is gated deterministically and blocks
 release. Fabrication is measured by an AI judge and tracked, because the judge is not reliable
-enough to block on. Distortion is scored on a mostly published quality instrument and tracked.
+enough to block on. Distortion is scored on a published quality instrument and tracked.
 
 **One structural point to bear in mind.** Compaction deliberately drops content. So "did it keep
 everything?" is the wrong question. The question that the system actually gates
-on, is **"did it keep everything it was supposed to keep?"** -- where "supposed to" is defined
+on, is **"did it keep everything it was supposed to keep?"** - where "supposed to" is defined
 by the clinical taxonomy. 
 
 ---
 
 ## 2. The three evaluation tiers
 
-**Tier 0 -- the hard gates. Run every time. A failure stops the release.**
+**Tier 0 - the hard gates. Run every time. A failure stops the release.**
 No AI involved. These are arithmetic checks over the ledger and the assembled view, and they
 give the same answer every time on the same data. This is the safety floor.
 
-**Tier 1 -- the AI-judge measures. Run nightly. Tracked, not blocking.**
+**Tier 1 - the AI-judge measures. Run nightly. Tracked, not blocking.**
 An AI model reads the output and rates it. Useful for spotting a regression, not reliable
 enough to block a release. Section 4 explains why.
 
-**Tier 2 -- periodic validation. Off the release path.**
+**Tier 2 - periodic validation. Off the release path.**
 Checks the measuring instruments: does the AI judge agree with clinicians, 
 do the gates actually detect the failures they claim to, does the system still work
 on patients it has never seen.
@@ -64,7 +64,7 @@ These are the checks that stop a release. You set the threshold for each.
 | `gate_T1` | No Tier-1 fact is lost. Allergies, code status, infection-control status. |
 | `gate_T2` | No Tier-2 fact is lost. Sentinel events, implanted devices, anatomy-altering surgery including major organ transplant, permanent conditions, altered immune status. |
 | `gate_safety` | No severe adverse drug reaction, code-status directive, or infection-control status is lost, regardless of anything else about the record. |
-| `gate_signeg` | No significant negative is lost. A documented *absence* -- ruled-out, resolved, no longer present -- is clinical information and is retained as such. |
+| `gate_signeg` | No significant negative is lost. A documented *absence* - ruled-out, resolved, no longer present -- is clinical information and is retained as such. |
 | `gate_swr` | The salience-weighted total retention does not fall below the agreed floor. |
 | Integrity gates | The right admissions appear in the right tiers, in the right order, with nothing from the future leaking into the past and nothing shown twice. |
 | Compression band | The compaction neither did nothing nor destroyed the content. |
@@ -73,9 +73,9 @@ These are the checks that stop a release. You set the threshold for each.
 lost Tier-5 one. Three classes are floored to top weight regardless of tier, because they stand
 in for categories that must never slip:
 
-- `severe_adr_allergy` -- the category itself
-- `chronic_disease_state` -- the closest available class to **active malignancy**
-- `anatomy_altering_surgery` -- the closest available class to **major organ transplant**
+- `severe_adr_allergy` - the category itself
+- `chronic_disease_state` - the closest available class to **active malignancy**
+- `anatomy_altering_surgery` - the closest available class to **major organ transplant**
 
 **This is approximate on purpose, and it is a decision for you.** There is no
 malignancy-only or transplant-only class. Flooring the closest class means flooring everything
@@ -103,7 +103,7 @@ register with the fact text, its class, its weight and where it went.
 **Their scope is what the taxonomy pinned.** The metric counts only facts the taxonomy said to
 keep. If the taxonomy declines to pin something clinically important, no retention gate will
 ever tell you. **That is why reviewing the taxonomy is a clinical task and not a technical
-one** -- see `clinical_tuning_points.md`.
+one** - see `clinical_tuning_points.md`.
 
 **"Lost" has two meanings, and the register distinguishes them.** A fact can be gone entirely,
 or it can survive only as a count in a rollup: "5 COPD exacerbations" where the fifth was the
@@ -123,7 +123,7 @@ benchmark (VeriFact). The result:
 | **When it flags a statement as unsupported, it is right about** | **1 time in 4** |
 
 Of 25 statements the judge flagged as unsupported, 6 were genuinely unsupported. 
-Of the 15 genuinely unsupported statements in the sample, it declined to endorse 12 and waved 3 through. 
+Of the 15 genuinely supported statements in the sample, it declined to endorse 12 and waved 3 through. 
 So - (1) it over-flags heavily and (2) under-detects modestly. Much of the over-flagging is a boundary dispute 
 between "not supported" and "not addressed by the source", which is a labelling distinction more than a safety one.
 
@@ -156,7 +156,7 @@ is which when you report the scores.
 against an error taxonomy (hallucination, omission, temporal error, salience
 mis-classification), reported as judge-versus-human correlation and inter-rater agreement. Until
 that exists, treat PDSQI-9+1 as a regression tracker, not as evidence of quality. **Running that
-panel is the single highest-value clinical contribution to this evaluation** -- and it is the
+panel is the single highest-value clinical contribution to this evaluation** - and it is the
 only thing that would externally validate (or otherwise) the temporal-coherence attribute at all.
 
 ---
@@ -175,8 +175,7 @@ The system checks its ledger against that summary, on two axes:
   fact in our record or a genuine change in the patient. Either way it is surfaced for review.
 
 Two design points a reviewer will ask about. It compares against the **real, unedited clinician
-text**, never the system's own condensation of it -- otherwise it would be testing the model
-against the model. And it compares against the **ledger**, not the raw extraction, because the
+text**, not the system's own condensation of it. And it compares against the **ledger**, not the raw extraction, because the
 ledger is what a clinician actually sees.
 
 **Its limit:** it covers one admission, and it tests *retention* only. It does not study
@@ -199,7 +198,7 @@ One qualification: the two factors together explain only a small share of what d
 survival, so recency is a real and statistically clear effect but not the whole story. The
 direction is what matters here, not the size.
 
-A second study tested the obvious remedy -- showing the writer the retained-fact list and
+A second study tested the obvious remedy - showing the writer the retained-fact list and
 telling it not to contradict the record. **It helps, but is not enough.** Removing the list
 from the writer's prompt raised contradicted facts from 17 to 28, so the instruction is doing
 real work. But 17 facts were still contradicted with the list supplied. 
@@ -230,10 +229,10 @@ in 42 of 42 cases. **Perfect consistency is achievable**, so the scatter elsewhe
 real blurred clinical concepts, not a broken system.
 
 **The clinical consequence, measured.** In the reference cohort, 10 of 69 facts filed under
-"severe adverse drug reaction" were not drug reactions at all -- they were lines, devices and
+"severe adverse drug reaction" were not drug reactions at all - they were lines, devices and
 operations. Because safety-class facts are deliberately made hard to remove, those entries are
 permanent and a physician cannot delete them. **This was reviewed and accepted: it errs in the
-safe direction.** The opposite direction is the dangerous one -- a genuine drug intolerance
+safe direction.** The opposite direction is the dangerous one - a genuine drug intolerance
 filed under the wrong class loses its protection and can be pruned. Both directions occur.
 
 The fix is a better extraction model and a better prompt, not another gate. Your review of the
@@ -243,14 +242,14 @@ class definitions is what moves this most.
 
 The system merges repeated mentions of the same condition into one line, in three places: twice
 when it builds the ledger deterministically, and once more when it rolls up chronic conditions.
-The risk is that a short line absorbs a longer, more specific one -- "coronary artery disease
+The risk is that a short line absorbs a longer, more specific one - "coronary artery disease
 status post stent placement" becoming plain "coronary artery disease", with the stent gone. This
 is silent: no check fires, because the underlying fact is still filed inside the merged entry.
 
 Every merge in the reference cohort was screened for exactly this: was a high-salience concept
 (a device, an operation, a resistant organism, a cancer, an allergy, a code-status decision)
 present in one of the merged entries but missing from the line that replaced it? And if so, was
-it recovered anywhere else the clinician actually sees -- another ledger entry, or the prose?
+it recovered anywhere else the clinician actually sees - another ledger entry, or the prose?
 
 | | |
 |---|---|
@@ -268,7 +267,7 @@ always whether the concept survives *somewhere* in what is served.
 The four genuine losses: a coronary stent, a VRE bacteraemia absorbed into a different
 organism's line, a bladder-cancer resection with its remission status, and one hepatitis B entry
 where "resolved" became "chronic" and the reactivation-risk warning was lost. The last is the
-most instructive -- not an omission but a change of clinical meaning.
+most instructive - not an omission but a change of clinical meaning.
 
 Two cautions if you run this yourself. **Four of the ten review rows were correct behaviour, not
 losses**: a patient documented DNR/DNI four times whose code status was later documented as Full
@@ -313,14 +312,14 @@ Bring these to the board yourself.
    number is either AI-produced or measured against the system's own inputs.
 2. **The only external clinician-labelled benchmark (VeriFact) validates the JUDGE** but
    it is not shipped with this repository - it depends on separately credentialed data and
-   different infrastructure. You should nenchmark your judge model against VeriFact.
+   different infrastructure. You should benchmark your judge model against VeriFact.
 3. **The judge is right about roughly 1 in 4 of its unsupported flags.** Human triage, not
    automated gating.
 4. **The judge that evaluates and the judge inside the pipeline are the same model.** A good
    evaluation score partly reflects the model's own dispositions rather than the output's
    quality.
 5. **No human quality panel has been run.** PDSQI-9+1 numbers are one model rating another
-   model's prose, and one of the ten attributes -- temporal coherence -- is a local addition to
+   model's prose, and one of the ten attributes - temporal coherence - is a local addition to
    the published nine, with no external validation of its own.
 6. **Whether the system merged two genuinely different conditions into one ledger line is
    screened but not measured.** It is checked for inventing things, and for losing things. For
