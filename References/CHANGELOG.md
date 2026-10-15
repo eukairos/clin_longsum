@@ -7,7 +7,6 @@ This file is an INDEX, not the record. Each versioned object carries its own aut
 history in code; this file says where that history lives, what the current value is, and what
 non-versioned decisions have been taken. Where the two disagree, the code wins.
 
-Verified 2026-07-29 against `longitudinal_bhc_test`.
 
 ---
 
@@ -26,9 +25,6 @@ Verified 2026-07-29 against `longitudinal_bhc_test`.
 to `CHANGELOG` in the same commit. This is the pattern the other objects follow loosely and the
 taxonomy follows strictly.
 
-Note: the entries in `retention_taxonomy.CHANGELOG` are NOT in version order -- v2.10 (dated
-2026-06-26) is listed before v2.9 (2026-06-24). Read by date, not position.
-
 ---
 
 ## 2. Current bindings
@@ -40,7 +36,7 @@ Note: the entries in `retention_taxonomy.CHANGELOG` are NOT in version order -- 
 | `single_summary` | `single_summary.v1` |
 | `retention_extractor` | `retention_extractor.v3` |
 | `episode_paragrapher` | `episode_paragrapher.v1` |
-| `tldr_synthesizer` | `tldr_synthesizer.v1` (NB_LONG_02 TL;DR prompt verbatim) |
+| `tldr_synthesizer` | `tldr_synthesizer.v1` |
 | `compactor` | `compactor.v1` |
 | `faithfulness_validator` | `faithfulness_validator.v3` |
 
@@ -58,9 +54,6 @@ Two prompt versions are pinned in stage code rather than the registry: c2 emits
 | `compactor` | `ornith:35b` | 0.2 | 32768 | yes |
 | `faithfulness_validator` | `deepseek-r1:32b` | 0.0 | 32768 (`num_predict` 16384) | yes |
 
-`retention_validator` is RETIRED -- c2 is fully deterministic and its `AuditRecord` hardcodes
-`provider="deterministic"`.
-
 Embeddings: `Snowflake/snowflake-arctic-embed-l-v2.0` (`EMBED_MODEL` in `.env`).
 
 ### Tuning knobs (`config.py`)
@@ -72,7 +65,7 @@ faithfulness threshold 0.6 (`vendor/faithfulness_validator.FAITHFULNESS_THRESHOL
 
 ---
 
-## 3. Taxonomy history (summary -- read the .py for the full text)
+## 3. Taxonomy history (summary - read the .py for the full text)
 
 | Version | Date | What changed |
 |---|---|---|
@@ -91,30 +84,22 @@ faithfulness threshold 0.6 (`vendor/faithfulness_validator.FAITHFULNESS_THRESHOL
 | v2.11 | 2026-07-29 | Audit the prune: `prune_reason()` + b2 `dropped[]`. Additive; no re-extraction. |
 | v2.12 | 2026-08-19 | FM-8. Safety classes robust to `lifecycle=superseded`: the safety branch moves ABOVE the superseded guard, `ruled_out` becomes the sole exit from a safety pin. b2 exempts safety classes from the `amended` route so a de-labelled allergy is SERVED as an explicit negative; a superseded latest mention wins `negative_kind` outright. `prune_reason` suspected-branch drift fixed (a `suspected`+`active` T4/T5 decline was reported as `suspected_inactive` when the real reason was tier). f12 now enforces the baseline's `taxonomy_version` stamp. b1 prompt distinguishes record retraction from drug substitution (STAGED, not re-extracted). Re-derives from b2 onward; no re-extraction. |
 
-**Re-extraction cost by version:** v2.9 and v2.10 changed STORED values and needed a full b1
-re-run. v2.11 does not -- it re-derives from b2 onward. Neither does v2.12: the gate reorder is
-pure derivation. Its b1 prompt change is STAGED only -- the current cohort has NOT been
-re-extracted, so `lifecycle=superseded` in existing `retention_facts.jsonl` still carries the
-old drug-substitution reading. The gate reorder is what protects that data.
-
 **Evaluation baseline:** f12's stored gate point (`frontier_baseline.json`) has always carried
-a `taxonomy_version` stamp, but nothing read it -- a v2.11 point was silently compared against a
+a `taxonomy_version` stamp, but nothing read it - a v2.11 point was silently compared against a
 v2.10 run for two versions. v2.12 adds the guard: on a version mismatch the dominance gate is
 SKIPPED and reported (`baseline_stale` in the JSON, a loud line on stdout), the absolute floor
 gate still applies, and a passing run re-baselines automatically. All four stored baselines were
 stale when the guard landed (`clin_test_data/data_gen` and `data_test` at v2.11, `data/` and
-`tiered_longsum/data/` at v2.10) -- they self-heal on the next passing f12 run.
+`tiered_longsum/data/` at v2.10) - they self-heal on the next passing f12 run.
 
 The other f-suite thresholds (f4 0.6/0.9, f5, f6, f9) are hard-coded and marked PROVISIONAL in
 their own docstrings; they are not version-stamped and are unaffected by this guard.
 
 ---
 
-## 4. Decisions and changes not carried by a version string
+## 4. Decisions and changes not carried by a version string; newest first
 
-Newest first. These are the things a version string would not tell you.
-
-### 2026-08-29 -- b2 surface-form normalisation (possessive / `s/p`)
+### 2026-08-29 - b2 surface-form normalisation (possessive / `s/p`)
 
 - **`_normalize_surface()` in `b2_build_ledger.py`**, applied by both `_content_tokens` and
   `_phrase`. Strips the possessive suffix (`Crohn's` -> `crohn`, ASCII and U+2019) and drops the
@@ -130,7 +115,7 @@ Newest first. These are the things a version string would not tell you.
 - **Strip, do not fold.** Folding `<Eponym>'s` to `<eponym>s` was tested and REJECTED: in two
   subjects it split the possessive spelling of an eponymous condition from its apostrophe-free
   spelling, which had previously clustered. Adding `s`/`p` to `_STOPWORDS` was also tested and
-  rejected -- it fragmented an unrelated cluster. Stripping keeps possessive and non-possessive
+  rejected - it fragmented an unrelated cluster. Stripping keeps possessive and non-possessive
   spellings of an eponym on one token.
 - Measured effect, test cohort, full `_project_patient` path (cluster -> split -> build_node ->
   consolidate -> merge -> prune) run over all 100 subjects before and after: **6835 rows before
@@ -138,15 +123,15 @@ Newest first. These are the things a version string would not tell you.
   condition sheds the two members belonging to an unrelated condition (15 -> 13 facts) and the
   correct node absorbs them (8 -> 10). No `dropped[]` row moved; no episode rollup changed.
 - Incidence: 52 facts carry a possessive and 14 carry `s/p` in the test cohort, but only 2 node
-  members were bridged by a single-character token alone -- both in the one node above. The
-  mechanism is general -- any possessive eponym against any `s/p` fact -- but the incidence here
+  members were bridged by a single-character token alone - both in the one node above. The
+  mechanism is general:any possessive eponym against any `s/p` fact, but the incidence here
   is low.
 - `b3_loss_audit` and `c2_retention_validator` import `b2._content_tokens` and will see the same
   normalisation on their next run.
 - Found by the class mis-assignment sweep; full trace in
   `src/studies/ledger_studies/taxonomy_self_collision/` (gitignored).
 
-### 2026-08-01 -- b2 identity guard (FM-7 fixed)
+### 2026-08-01 - b2 identity guard (FM-7 fixed)
 - **`_split_cluster` / `_split_group` in `b2_build_ledger.py`.** No ledger entry may display a
   wording that names a condition some of its own members do not share. Fixes the compound-fact
   bridge: a fact naming two conditions ("Coronary artery disease and peripheral vascular
@@ -160,17 +145,17 @@ Newest first. These are the things a version string would not tell you.
 - Measured effect, test cohort: 3777 -> 3814 entries (+1.0%), node text +0.6%, 45 conditions
   recovered, 8 phrasings replaced by a shorter one for the same condition. `fact_ids`,
   `dropped[]` and episode rollups verified byte-identical per patient.
-- **`_SPLIT_EXEMPT = {"code_status_directive"}`** -- clinical decision. A directive
+- **`_SPLIT_EXEMPT = {"code_status_directive"}`** - clinical decision. A directive
   legitimately mutates; the most recent one is the patient's wish, so latest-wins collapse is
   correct there. Verified: 133 code-status entries before and after.
 - `_merge_group`'s representative rule extracted to **`_rep_of`** so `_split_group` shares it.
   No behaviour change. Reverting the tiebreak to longest-text was tested and REJECTED: it
   rescued 1 orphan and lost 65 canonical labels.
-- Residual: not complete cover -- in one subject a pancytopenia fact still sits inside the HBV
+- Residual: not complete cover - in one subject a pancytopenia fact still sits inside the HBV
   cirrhosis node. `fact_ids` stays single-home; multi-home membership was considered and deferred because
   `f9_merge_faithfulness._members_of` infers membership by subset and would mis-attribute.
 
-### 2026-07-29 -- forensic register, prune audit, span-scope fix
+### 2026-07-29 - forensic register, prune audit, span-scope fix
 - `References/FORENSIC_MAP.md`, `KNOWN_FAILURE_MODES.md`, `GLOSSARY.md`, this file: written as
   the knowledge base for the forensic/FAQ agent.
 - **b2 `dropped[]`** + `retention_dropped` table (taxonomy v2.11). Prune is audited; routing
@@ -193,7 +178,7 @@ Newest first. These are the things a version string would not tell you.
 - **c2 gains a top-level `subject_id`** on `RetentionCompletenessOutput`; it was previously
   reachable only inside `audit`.
 
-### Earlier (undated in-repo; reconstructed from code and handover)
+### Earlier (undated in-repo; reconstructed from code and handover logs)
 - **c4 gate**: keys on the PRESENCE of unsupported statements, not the aggregate `pass`
   boolean. Supersedes aggregate gating, which let a 0.88-scoring paragraph ship a fabrication.
 - **Option A two-region compaction**: `pinned_prefix_md` / `prior_generated_md` /
@@ -205,7 +190,7 @@ Newest first. These are the things a version string would not tell you.
 - **DB as source of truth for promotions**: `holdout.promote()` writes the `promotions` table
   first, then projects `promoted_admissions.csv`. `db_persist_promotions.py` is backfill/repair
   only.
-- **Fold-in concurrency**: session-level Postgres advisory lock (key `7704140419`) in
+- **Fold-in concurrency**: session-level Postgres advisory lock (key `xxxxxxxx`) in
   `foldin_patient.py`, around the whole cascade. The API's `threading.Lock` is an in-process
   fast path only.
 - **c5 review queue**: redesigned from an append-only file to a Postgres liveness-keyed queue
@@ -215,9 +200,9 @@ Newest first. These are the things a version string would not tell you.
 - **Retention-visibility guard**: `retention_visibility_gaps()` aborts the write in
   `db_persist_retention` and returns an advisory `visibility_gaps` on read.
 - **e1 `--subject` renamed to `--preview`**: the flag was print-only and returned before the
-  write block -- a silent no-persist footgun.
+  write block.
 - **b2 clustering**: aggressive cross-class merge (containment + bigram union-find, no
-  class-group gating) REJECTED -- it buried an active HCC under a transplant-history node.
+  class-group gating) REJECTED - it buried an active HCC under a transplant-history node.
   Current rule is class-group gated. Do not re-introduce the predecessor.
 - **b1 prompt**: anti-inference counterweight and an explicit REDACTIONS rule added by Stay
   after the fabrication trace (FM-1).
@@ -236,9 +221,6 @@ never by re-accreting ALTERs into the file.
 
 Consequence: the file does not tell you what any given database actually has. Check.
 
-As of 2026-07-29, only `longitudinal_bhc_test` matches `schema.sql`. `longitudinal_bhc` (dev)
-and `longitudinal_bhc_gen` are at a 26-column `tiered_view` and lack `review_queue` /
-`review_decisions` / `retention_dropped` / the `provenance` columns.
 
 ```sql
 -- what a given database actually has
