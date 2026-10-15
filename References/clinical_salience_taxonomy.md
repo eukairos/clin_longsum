@@ -101,24 +101,24 @@ By routing concepts through this taxonomy, you create a system where a single se
 
 ## Implemented model: three axes (`retention_taxonomy.py`)
 
-The five tiers above are **AXIS 1** of the implemented taxonomy (`retention_taxonomy.py`, the governance object, currently `v2.12`). The running pipeline tags every extracted fact on **three** axes. Ledger membership (whether a fact is pinned into the must-retain ledger) is **derived** from the three axes by `is_ledger_member`.
+The five tiers above are **AXIS 1** of the implemented taxonomy (`retention_taxonomy.py`, the governance object). The running pipeline tags every extracted fact on **three** axes. Ledger membership (whether a fact is pinned into the must-retain ledger) is **derived** from the three axes by `is_ledger_member`.
 
 ### AXIS 1 — `salience_tier` (T1–T5)
 
 As narrated above: T1 operational alert (pin) / T2 permanent baseline (carry forward) / T3 chronic axis (state track) / T4 recurrent episode (graph collapse) / T5 transient (prune past the window, unless carrying a `negative_kind`).
 
-**The T5 clause is split across two stages, and the distinction matters.** "Unless carrying a `negative_kind`" governs the PIN decision, at B2: `is_ledger_member` admits any T5 fact with a non-null `negative_kind` into the ledger, and B2 applies no recency window at all -- the safer half, since nothing is lost at build time. The 90-day window is applied later and separately, at B4 (`ledger_consolidate._prune_t5`, `config.CONSOLIDATE_T5_PRUNE_DAYS`), as a **serving-layer** reduction of what a clinician reads. There the exemption is narrower: only `surveillance` survives.
+**The T5 clause is split across two stages, and the distinction matters.** "Unless carrying a `negative_kind`" governs the PIN decision, at b2: `is_ledger_member` admits any T5 fact with a non-null `negative_kind` into the ledger, and b2 applies no recency window at all-the safer half, since nothing is lost at build time. The 90-day window is applied later and separately, at b4 (`ledger_consolidate._prune_t5`, `config.CONSOLIDATE_T5_PRUNE_DAYS`), as a **serving-layer** reduction of what a clinician reads. There the exemption is narrower: only `surveillance` survives.
 
-| `negative_kind` | Pinned at B2? | Survives the B4 90-day prune? | Why |
+| `negative_kind` | Pinned at b2? | Survives the b4 90-day prune? | Why |
 | --- | --- | --- | --- |
 | `surveillance` | yes | **yes - exempt** | an unconfirmed finding still being watched; ageing it out drops the only standing record that something needs a repeat scan |
 | `absent_or_negative` | yes | no | a dated screening/workup negative is a historical statement; past the window it is stale, not wrong |
 | `resolved_relevant` | yes | no | a resolved event with genuinely lifetime weight should be carrying a T2 class (`sentinel_event`, `permanent_condition`, `transfusion_obstetric_history`), not sitting at T5 |
-| `null` | no | n/a | declined at B2 with `prune_reason = not_pinned_tier` |
+| `null` | no | n/a | declined at b2 with `prune_reason = not_pinned_tier` |
 
-Nothing pruned at B4 is lost: the pre-consolidation ledger is preserved at `retention_ledger.raw.jsonl`, and C2 validates recall against that file rather than the served one, so the reduction does not distort the recall metric. The exempt set is `ledger_consolidate.T5_PRUNE_EXEMPT_KINDS`; widening it is a clinical call.
+Nothing pruned at b4 is lost: the pre-consolidation ledger is preserved at `retention_ledger.raw.jsonl`, and c2 validates recall against that file rather than the served one, so the reduction does not distort the recall metric. The exempt set is `ledger_consolidate.T5_PRUNE_EXEMPT_KINDS`; widening it is a clinical call.
 
-> Cohort evidence (100-patient test cohort): 474 T5 nodes, **all 474** carrying a `negative_kind` - necessarily, since at T5 the `negative_kind` branch is the only route through `is_ledger_member` (the `confirmed` and `suspected` paths are gated to T1-T3, and `floor_tier` keeps the safety classes at T1/T2). Before the exemption, the B4 prune took 364 of them on date alone, including 8 `surveillance` findings.
+> Cohort evidence (100-patient test cohort): 474 T5 nodes, **all 474** carrying a `negative_kind` - necessarily, since at T5 the `negative_kind` branch is the only route through `is_ledger_member` (the `confirmed` and `suspected` paths are gated to T1-T3, and `floor_tier` keeps the safety classes at T1/T2). Before the exemption, the b4 prune took 364 of them on date alone, including 8 `surveillance` findings.
 
 ### AXIS 2 — `retention_class` (12 classes)
 
@@ -137,9 +137,9 @@ Each fact is assigned exactly one class. The class sets a **default tier** (whic
 | `transfusion_obstetric_history` | T2 | Permanent relevance to cross-matching, alloimmunisation, or future pregnancy (red-cell alloantibodies, prior transfusion reaction, previous caesarean, PPH). | Uncomplicated vaginal delivery with no sequelae. |
 | `chronic_disease_state` | T3 | Long-term incurable systemic disease tracked as a continuous state (COPD, CHF, CKD/ESRD, metastatic malignancy, IBD, epilepsy, AF, cirrhosis). The INDEX diagnosis establishes the state node. | The 7th COPD exacerbation (→ recurrent_episode). |
 | `recurrent_episode` | T4 | Discrete, time-bound exacerbation of a chronic (T3) parent; low individual, high aggregate salience. `parent_condition` is set; collapses to a frequency metric. | FIRST presentation of a chronic disease (→ chronic_disease_state, occurrence=index); malignancy recurrence/relapse/progression or graft/organ rejection (→ sentinel_event). |
-| `transient_event` | T5 | Minor acute illness, symptom, lab abnormality, or administrative event that resolves. Prunable past the recency window UNLESS it carries a `negative_kind` -- this exempts it from the B2 PIN decision; at the B4 serving prune only `negative_kind=surveillance` is exempt (see AXIS 1). | Normal screening colonoscopy with date (→ negative_kind=absent_or_negative); incidental lung nodule (→ negative_kind=surveillance + certainty=suspected). |
+| `transient_event` | T5 | Minor acute illness, symptom, lab abnormality, or administrative event that resolves. Prunable past the recency window UNLESS it carries a `negative_kind`-this exempts it from the b2 PIN decision; at the b4 serving prune only `negative_kind=surveillance` is exempt (see AXIS 1). | Normal screening colonoscopy with date (→ negative_kind=absent_or_negative); incidental lung nodule (→ negative_kind=surveillance + certainty=suspected). |
 
-Two deterministic safety nets re-route already-extracted facts at load (B2/B3/C1), independent of the extractor: `is_disease_course_event` promotes a malignancy recurrence/relapse/progression or graft/organ rejection mis-tagged as `recurrent_episode` to `sentinel_event` (T2); `is_sentinel_episode` does the same for status epilepticus, gangrene, and graft/bypass/stent occlusion or thrombosis. If you intend to add further conditions into the safety nets, `TAXONOMY_EXTENSION.md ` is the runbook to refer to.
+Two deterministic safety nets re-route already-extracted facts at load (b2/b3/c1), independent of the extractor: `is_disease_course_event` promotes a malignancy recurrence/relapse/progression or graft/organ rejection mis-tagged as `recurrent_episode` to `sentinel_event` (T2); `is_sentinel_episode` does the same for status epilepticus, gangrene, and graft/bypass/stent occlusion or thrombosis. If you intend to add further conditions into the safety nets, `TAXONOMY_EXTENSION.md ` is the runbook to refer to.
 
 ### AXIS 3 — status modifiers
 
@@ -148,59 +148,59 @@ Four per-fact modifiers refine the tier/class and drive the ledger-membership de
 | Modifier | Values | Role |
 | --- | --- | --- |
 | `certainty` | `confirmed` \| `suspected` \| `ruled_out` \| `patient_reported` | `ruled_out` is never pinned (kept as a negative in `considered_excluded`); `suspected + active` (T1–T3) pins as a PROVISIONAL open problem; `patient_reported` pins for allergy / code-status / infection-control (the patient is often the only source). |
-| `lifecycle` | `active` \| `resolved` \| `in_remission` \| `superseded` | `superseded` is never pinned. Note it is the odd value out: `active` / `resolved` / `in_remission` describe the PATIENT, whereas `superseded` describes the RECORD (the fact was wrong or has been replaced -- a de-labelled allergy, an overwritten code status). It therefore gets its own hard guard in `is_ledger_member` and its own ledger bucket (`amended`). Otherwise `lifecycle` is consulted only on the `suspected` path: `suspected + active` pins, `suspected + resolved / in_remission` does not (except `sentinel_event`, v2.10). |
+| `lifecycle` | `active` \| `resolved` \| `in_remission` \| `superseded` | `superseded` is never pinned. Note it is the odd value out: `active` / `resolved` / `in_remission` describe the PATIENT, whereas `superseded` describes the RECORD (the fact was wrong or has been replaced-a de-labelled allergy, an overwritten code status). It therefore gets its own hard guard in `is_ledger_member` and its own ledger bucket (`amended`). Otherwise `lifecycle` is consulted only on the `suspected` path: `suspected + active` pins, `suspected + resolved / in_remission` does not (except `sentinel_event`. |
 | `occurrence` | `index` \| `recurrence` | `index` = first time the condition is seen across this patient's history; distinguishes a first presentation (T3 state) from a later flare (T4 episode). |
 | `negative_kind` | `null` \| `absent_or_negative` \| `resolved_relevant` \| `surveillance` | A clinically important negative / resolved-event / surveillance finding. Any non-null value PINS the fact (it must not silently drop). See below. |
 
 #### `negative_kind` — disambiguating the old `significant_negative`
 
-A single boolean `significant_negative` carried four incompatible meanings, which caused a real historical event (e.g. a resolved provoked PE) to render identically to a documented absence ("PE absent") — a clinician-facing display-safety risk and a source of false contradictions in evaluation. v2.9 replaces the boolean with an enum so the **sense** is explicit and set at the SOURCE (B1 extraction), where the text actually disambiguates it:
+A single boolean `significant_negative` carries four incompatible meanings, which can cause a real historical event (e.g. a resolved provoked PE) to render identically to a documented absence ("PE absent") — a clinician-facing display-safety risk and a source of false contradictions in evaluation. 'Significant negative' is therefore split into 3 meanings so the **sense** is explicit and set at the SOURCE (b1 extraction), where the text actually disambiguates it:
 
 * `null` — an ordinary positive, currently-present condition (not a significant negative).
 * `absent_or_negative` — a documented ABSENCE or a screening/workup negative: the patient does NOT (currently) have X. e.g. "no known drug allergies", "HIV negative", "colonoscopy normal 2024", "EGD ruled out varices". The verbatim finding text is preserved so the exclusion reads true.
 * `resolved_relevant` — a POSITIVE event the patient DID have, now resolved, but with lasting prognostic weight: provoked VTE/PE, first unprovoked seizure, significant fracture. **This is not an absence — the event happened.**
 * `surveillance` — an unconfirmed finding being watched: incidental nodule/mass/indeterminate cyst, a lesion "concerning for" malignancy, a rising tumour marker. Set deterministically by `is_surveillance_finding` (with `certainty=suspected`) so a ?malignancy-under-surveillance cannot drop on a prompt miss.
 
-When B2/B4 consolidation merges same-condition facts carrying different kinds, `merge_negative_kind` resolves the node's kind by priority **`null` (present positive) > `resolved_relevant` > `surveillance` > `absent_or_negative`** -- a present-positive sibling is never masked by an "absent" sibling, and a real resolved event outranks a surveillance finding, which outranks a plain absence.
+When b2/b4 consolidation merges same-condition facts carrying different kinds, `merge_negative_kind` resolves the node's kind by priority **`null` (present positive) > `resolved_relevant` > `surveillance` > `absent_or_negative`** - a present-positive sibling is never masked by an "absent" sibling, and a real resolved event outranks a surveillance finding, which outranks a plain absence.
 
 #### Pruning is audited
 
-Ledger membership is derived, so a fact that is not pinned simply does not appear in any ledger array. A confirmed T5 `transient_event` with no `negative_kind` matched none of B2's routing branches -- not `ruled_out`, not `superseded`, not `recurrent_episode`, not a ledger member -- and fell out of the chain into no list at all, with no counter and no log line. Absence from every array is indistinguishable from a fact that was never extracted, which makes a genuine mis-label impossible to tell from a correct prune. Thus `prune_reason()` was added. This which names WHICH branch of `is_ledger_member` declined the fact. B2 records each declined fact in a `dropped[]` array on the ledger, carrying its axes, its `fact_id`, its source admission and that reason; D3 persists it to the `retention_dropped` table. Reasons:
+Ledger membership is derived, so a fact that is not pinned simply does not appear in any ledger array. A confirmed T5 `transient_event` with no `negative_kind` matched none of b2's routing branches - not `ruled_out`, not `superseded`, not `recurrent_episode`, not a ledger member - and fell out of the chain into no list at all, with no counter and no log line. Absence from every array is indistinguishable from a fact that was never extracted, which makes a genuine mis-label impossible to tell from a correct prune. Thus `prune_reason()` was added. This which names WHICH branch of `is_ledger_member` declined the fact. b2 records each declined fact in a `dropped[]` array on the ledger, carrying its axes, its `fact_id`, its source admission and that reason; D3 persists it to the `retention_dropped` table. Reasons:
 
 | Reason | Meaning |
 | --- | --- |
-| `not_pinned_tier` | confirmed, but T4/T5 with no `negative_kind` -- the ordinary transient prune |
+| `not_pinned_tier` | confirmed, but T4/T5 with no `negative_kind` - the ordinary transient prune |
 | `suspected_inactive` | `suspected` + `resolved` / `in_remission`, outside `sentinel_event` |
 | `patient_reported_other_class` | `patient_reported` outside allergy / code-status / infection-control |
-| `ruled_out`, `superseded` | reachable from the helper, though B2's own chain catches both earlier |
-| `unclassified` | the gate declined for a combination none of the above names -- worth investigating |
+| `ruled_out`, `superseded` | reachable from the helper, though b2's own chain catches both earlier |
+| `unclassified` | the gate declined for a combination none of the above names - worth investigating |
 
 This changes nothing about what is pinned or served: `is_ledger_member` is untouched, so no re-extraction is required. It makes an existing, usually correct, decision visible.
 
 Three limits worth stating. 
-1. The `dropped[]` array is **audit only** -- never served, never counted in C2 recall. 
-2. It does not cover the separate B4 T5 recency prune (`CONSOLIDATE_T5_PRUNE_DAYS`), which removes nodes from the served ledger; those remain recoverable from `retention_ledger.raw.jsonl`, whereas a B2 fall-through is recoverable only from `retention_facts.jsonl`.
-3. `dropped[]` does not cover facts that B2 **admitted** and then routed to `amended`. Those were never declined by the gate, so no `prune_reason` fires -- yet `amended` is not loaded to the database and IS counted as retained by C2, so such a fact is absent from the served ledger with no trace anywhere. See the next section.
+1. The `dropped[]` array is **audit only** - never served, never counted in c2 recall. 
+2. It does not cover the separate b4 T5 recency prune (`CONSOLIDATE_T5_PRUNE_DAYS`), which removes nodes from the served ledger; those remain recoverable from `retention_ledger.raw.jsonl`, whereas a b2 fall-through is recoverable only from `retention_facts.jsonl`.
+3. `dropped[]` does not cover facts that b2 **admitted** and then routed to `amended`. Those were never declined by the gate, so no `prune_reason` fires - yet `amended` is not loaded to the database and IS counted as retained by c2, so such a fact is absent from the served ledger with no trace anywhere. See the next section.
 
 #### Superseded does not un-pin a safety class 
 
-`superseded` is a statement about the **record**, not about the patient: the earlier assertion has been withdrawn or replaced. It is distinct from `resolved` (the condition occurred and ended; the earlier record is still true) and from `ruled_out` (considered, then disproven; never true). **A de-labelled allergy is SERVED as an explicit negative** (`negative_kind=absent_or_negative`) rather than disappearing. The reader sees "penicillin allergy - de-labelled on challenge" instead of nothing, which is the safer default when the mechanism producing the silence has a demonstrated false-positive rate. This is also how ISO 27269 handles allergies.
+`superseded` is a statement about the **record**, not about the patient: the earlier assertion has been withdrawn or replaced. It is distinct from `resolved` (the condition occurred and ended; the earlier record is still true) and from `ruled_out` (considered, then disproven). **A de-labelled allergy is SERVED as an explicit negative** (`negative_kind=absent_or_negative`) rather than disappearing. The reader sees "penicillin allergy - de-labelled on challenge" instead of nothing, which is the safer default when the mechanism producing the silence has a demonstrated false-positive rate. This is also how ISO 27269 handles allergies.
 
-One consequence for node assembly: when the latest mention supersedes, it now supplies `negative_kind` outright instead of going through merge priority. Merge priority ranks `None` (condition present) highest, which is right in general and wrong for a retraction -- a de-label clustered with the original allergy would otherwise resolve to `None`, lose its "absent" marker, and read as a live allergy.
+One consequence for node assembly: when the latest mention supersedes, it supplies `negative_kind` outright instead of going through merge priority. Merge priority ranks `None` (condition present) highest, which is right in general and wrong for a retraction - a de-label clustered with the original allergy would otherwise resolve to `None`, lose its "absent" marker, and read as a live allergy.
 
 ---
 
 ## How a ledger node is assembled
 
-**This section describes B2 mechanics, not taxonomy rules.** The taxonomy decides whether a fact is pinned; `b2_build_ledger.py` decides how the pinned facts become the entries a clinician reads. Changes here carry no `TAXONOMY_VERSION` bump, but they change what is displayed, so they are documented alongside the axes they consume.
+**This section describes b2 mechanics, not taxonomy rules.** The taxonomy decides whether a fact is pinned; `b2_build_ledger.py` decides how the pinned facts become the entries a clinician reads. Changes here carry no `TAXONOMY_VERSION` bump, but they change what is displayed, so they are documented alongside the axes they consume.
 
 A patient mentions the same condition across several admissions. Those mentions are grouped and collapsed into ONE node, twice over:
 
 1. **Clustering** (`_cluster`, within a single `retention_class`) - overlap coefficient on content tokens, requiring at least one shared token that is not generic boilerplate. Two distinct conditions phrased "Chronic and stable X" and "Chronic and stable Y" share only `{chronic, stable}` and must not chain.
-2. **Consolidation** (`_consolidate`) -- a second merge ACROSS clusters, restricted to a compatibility group (diseases together; procedures and devices together; every other class only with itself), and only on Jaccard >= 0.6, a curated condition key, or verbatim phrase containment. The group restriction exists because an ungated merge once buried an active hepatocellular carcinoma inside a transplant-history node.
+2. **Consolidation** (`_consolidate`) - a second merge ACROSS clusters, restricted to a compatibility group (diseases together; procedures and devices together; every other class only with itself), and only on Jaccard >= 0.6, a curated condition key, or verbatim phrase containment. The group restriction exists because an ungated merge once buried an active hepatocellular carcinoma inside a transplant-history node.
 3. **Identity guard** (`_split_cluster` after step 1, `_split_group` after step 2) - neither grouping step may produce an entry whose displayed text names a condition that some of its own members do not share. A member that shares no identity token (content tokens minus qualifier boilerplate) with the entry's chosen wording is re-grouped around its own wording instead.
 
-   The guard exists because both grouping steps merge on a MENTION of a condition. A COMPOUND fact naming two conditions -- "Coronary artery disease and peripheral vascular disease", "Chronic thrombocytopenia likely secondary to cirrhosis" - matches both, bridges them into one group, and the latest-wins wording rule then lets one condition speak for the other. The absorbed condition is not pruned, so no `dropped[]` entry and no `prune_reason` fires: its `fact_id` stays inside the node while its identity disappears. The guard can only ever INCREASE the entry count -- it creates no merge that clustering or consolidation did not already make - so it cannot introduce a new swallow. 
+   The guard exists because both grouping steps merge on a MENTION of a condition. A COMPOUND fact naming two conditions - "Coronary artery disease and peripheral vascular disease", "Chronic thrombocytopenia likely secondary to cirrhosis" - matches both, bridges them into one group, and the latest-wins wording rule then lets one condition speak for the other. The absorbed condition is not pruned, so no `dropped[]` entry and no `prune_reason` fires: its `fact_id` stays inside the node while its identity disappears. The guard can only ever INCREASE the entry count- it creates no merge that clustering or consolidation did not already make - so it cannot introduce a new swallow. 
 
    **`code_status_directive` is exempt** (`_SPLIT_EXEMPT`). Unlike an allergy, a code-status directive legitimately mutates over time, and the most recent statement is the one that reflects the patient's wishes - so latest-wins collapse is correct there, and splitting would surface every superseded directive as its own entry. 
 
