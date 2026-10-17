@@ -1,4 +1,4 @@
-# EVALUATION.md -- evaluation runbook
+# EVALUATION.md - evaluation runbook
 
 How `clin_longsum` is evaluated, what each evaluation (F-series) script does, how to run the suite, and what
 the results are worth. Companion to `PIPELINE.md` (what the generation stages do) and to
@@ -87,16 +87,16 @@ panel scores the same patients.
 
 Split by determinism and cost so it can run in a pipeline.
 
-**Tier 0 -- deterministic gates. Every run. Blocks the build.**
-No LLM, no GPU, reproducible bit-for-bit on a frozen cohort. Non-zero exit stops promotion.
+**Tier 0 - deterministic gates. Every run. Blocks the build.**
+No LLM, reproducible bit-for-bit on a frozen cohort. Non-zero exit stops promotion.
 f1, f2, f3.
 
-**Tier 1 -- LLM-judge metrics. Nightly, or on a model or prompt change. Tracked, soft-gated.**
+**Tier 1 - LLM-judge metrics. Nightly, or on a model or prompt change. Tracked, soft-gated.**
 Non-deterministic, so run at `temperature=0` and gate on a tolerance band against a stored
 baseline rather than absolute equality. A breach raises an alert, not necessarily a stop.
 f4, f5, f6, f9, f10 (deterministic itself, but audits a Tier-1 judge).
 
-**Tier 2 -- periodic validation. Off the build path. On release, quarterly, or on judge swap.**
+**Tier 2 - periodic validation. Off the build path. On release, quarterly, or on judge swap.**
 Validates the harness rather than the build. f11, f12, the `studies/` ablations, judge
 calibration, and any human PDSQI-9+1 panel.
 
@@ -142,7 +142,7 @@ That is why every f-script takes `--subject`.
 
 ## 3. Tier 0: the deterministic gates
 
-### 3.1 f1_salience_recall.py -- salience-weighted retention recall
+### 3.1 f1_salience_recall.py - salience-weighted retention recall
 
 The metric no prior BHC evaluation needed, because none had a compaction stage that is
 *supposed* to drop content. It is the salience-aware, tier-stratified, hard-gated
@@ -162,10 +162,10 @@ taxonomy intends to drop never enter S. Correct dropping is therefore never pena
 **Homing.** Reuses `c2`'s representation-homing, so if the homing rule changes this metric
 follows automatically:
 
-- `node` -- retained in nodes, flagged or amended (full fidelity)
-- `excluded` -- retained as a ruled-out significant negative
-- `episode` -- present only as a frequency rollup: a resolution loss
-- `none` -- absent from the ledger: a genuine loss
+- `node` - retained in nodes, flagged or amended (full fidelity)
+- `excluded` - retained as a ruled-out significant negative
+- `episode` - present only as a frequency rollup: a resolution loss
+- `none` - absent from the ledger: a genuine loss
 
 `represented(f) = home in {node, excluded}`.
 
@@ -229,7 +229,7 @@ Outputs `eval/salience_recall.json` (gate booleans, stratified scores) and
 `eval/salience_recall_misses.csv` (the offending facts, weight-sorted). Exit 1 on any gate
 failure. The path overrides exist so f11 can point the real metric at a perturbed copy.
 
-### 3.2 f2_integrity.py -- structural and temporal integrity
+### 3.2 f2_integrity.py - structural and temporal integrity
 
 Asks whether the view is *assembled* correctly: the right admissions in the right tiers, in
 order, holdout excluded, ledger well-formed. Distinct from f1 (retention) and f4 (faithfulness).
@@ -265,7 +265,7 @@ different routes, so they can diverge.
 Outputs `eval/integrity.json` and `eval/integrity_violations.csv`. Exit 1 on any hard-gate
 failure.
 
-### 3.3 f3_compression.py -- compression against retention
+### 3.3 f3_compression.py - compression against retention
 
 Characterises the trade-off the compaction stage exists to make.
 
@@ -280,7 +280,7 @@ Chars, not tokens, to match the pipeline convention (`d1`'s audit ratio is `char
 and to stay deterministic and dependency-free.
 
 Hard gate `gate_compression_band`: `COMP_LO <= median(primary ratio) <= COMP_HI`. This catches
-degenerate compaction in both directions -- near 1.0 means compaction did nothing, near 0 means
+degenerate compaction in both directions - near 1.0 means compaction did nothing, near 0 means
 it destroyed the content. Tune the band from your first run's distribution (`--lo`, `--hi`); the
 shipped values are calibrated to the reference corpus and will not transfer.
 
@@ -297,7 +297,7 @@ band gate.
 All bind `config.model_for("faithfulness_validator")`. Swapping that one spec changes every
 judge in the suite, and invalidates the calibration (section 9).
 
-### 4.1 f4_faithfulness.py -- atomic-claim faithfulness
+### 4.1 f4_faithfulness.py - atomic-claim faithfulness
 
 Decompose each generated unit into atomic claims, label each Supported, Not-Supported or
 Not-Addressable.
@@ -346,7 +346,7 @@ is flagged `judge_error`, excluded from the metric and logged, never crashing th
 aggregation and counts that follow from the source are Supported, reserving Not-Supported for a
 specific assertion the source contradicts or has no basis for.
 
-Thresholds are mode-aware (`synth` 0.6, `all` 0.9) and **provisional** -- re-baseline from your
+Thresholds are mode-aware (`synth` 0.6, `all` 0.9) and **provisional** - re-baseline from your
 own clean pilot. By-unit-type fractions are reported so the synthesised tiers, where
 hallucination risk concentrates, track separately from the near-verbatim paragraphs. Each
 record carries `source_admit_seqs` and `source_hadm_ids`, and source blocks are delimited
@@ -355,10 +355,10 @@ Resumable: skips already-judged `(subject, unit)` pairs unless `--fresh`.
 
 Outputs `eval/faithfulness.jsonl` and `.json`.
 
-### 4.2 f9_merge_faithfulness.py -- consolidation precision
+### 4.2 f9_merge_faithfulness.py - consolidation precision
 
 b4's LLM consolidation folds several raw ledger entries into one line. "Faithfulness" here is
-**not** "no facts lost" -- correct consolidation drops duplicates by design. It splits three
+**not** "no facts lost" - correct consolidation drops duplicates by design. It splits three
 ways, and only one of the three is a new metric:
 
 - **Recall (no critical loss)** is already covered by f1. SWR counts only pinned facts, so a
@@ -380,11 +380,11 @@ against provenance rather than reading as fabrication.
 Gate 0.95, provisional. Shares the judge GPU with f4, so run it after f4. Outputs
 `eval/merge_faithfulness.jsonl` and `.json`.
 
-### 4.3 f5_pdsqi.py -- PDSQI-9 plus one
+### 4.3 f5_pdsqi.py - PDSQI-9 plus one
 
 **PDSQI-9 is the published instrument.** It has nine attributes and no temporal dimension.
-Event order is a first-class quality property of a longitudinal summary -- a correct fact in
-the wrong place in the patient's course can be read as current when it is historical -- so a
+Event order is a first-class quality property of a longitudinal summary - a correct fact in
+the wrong place in the patient's course can be read as current when it is historical - so a
 tenth attribute, `temporal_coherence`, was added here. `synthesized` is also redefined from its
 published sense to mean cross-admission integration.
 
@@ -412,7 +412,7 @@ judge-reliability signal**, and the deterministic side is ground truth.
 
 Outputs `eval/pdsqi10.jsonl` and `.json`. Exit 1 if the overall mean falls below `--threshold`.
 
-### 4.4 f6_incoming_ref.py -- the incoming clinician summary as reference
+### 4.4 f6_incoming_ref.py - the incoming clinician summary as reference
 
 The only human-authored reference in the repo. Every patient's current admission
 carries a real clinician-written BHC: what a physician thought worth recording. f6 checks the
@@ -445,9 +445,9 @@ in its dev-time source of the BHC.
 
 Track only, never a hard gate. Outputs `eval/incoming_reference.jsonl` and `.json`.
 
-### 4.5 f10_nothink_audit.py -- judge-health audit of the c3 gate
+### 4.5 f10_nothink_audit.py - judge-health audit of the c3 gate
 
-Deterministic (no LLM, no GPU) but audits a Tier-1 judge, so it sits in both tracks.
+Deterministic (no LLM) but audits a Tier-1 judge, so it sits in both tracks.
 
 c3 is the **data-path** faithfulness gate: a judge over the compacted Prior Admissions
 paragraph, whose failures route to c4 for automatic correction. Its hang-containment cascade
@@ -479,7 +479,7 @@ It reads `compaction_faithfulness.jsonl` and does two things:
 
 ## 5. Tier 2: validating the harness
 
-### 5.1 f11_metric_validation.py -- known-answer perturbation harness
+### 5.1 f11_metric_validation.py - known-answer perturbation harness
 
 **The highest-leverage script in the suite.** Every other number rests on the metrics actually
 detecting the failures they claim to. f11 injects one labelled corruption into a sandboxed copy
@@ -503,7 +503,7 @@ strips exactly that representation, escalating until the fact no longer homes to
 `node`/`excluded`. That is what makes the known answer *known*.
 
 **Detection is per-fact, not per-gate.** The stripped fact must appear as a new row in the
-perturbed run's `salience_recall_misses.csv` -- present perturbed, absent at baseline. This is
+perturbed run's `salience_recall_misses.csv` - present perturbed, absent at baseline. This is
 immune to whatever the cohort-wide aggregate gate was already doing, so a pre-existing
 `gate_signeg = False` cannot mask the signeg case. The aggregate value is still recorded for
 context.
@@ -515,7 +515,7 @@ runs the real f1/f4 as a subprocess, not a reimplementation.
 Outputs `eval/ablations/known_answer.json`. Exit 1 if any applicable corruption was missed;
 `--soft` forces 0.
 
-### 5.2 f12_frontier.py -- compression-retention frontier and operating-point gate
+### 5.2 f12_frontier.py - compression-retention frontier and operating-point gate
 
 Replaces "we beat baseline X" with "here is our operating point, and it degrades gracefully",
 then gates regressions on that point.
@@ -543,8 +543,8 @@ On a pass the current point becomes the new baseline, unless `--no-update-baseli
 **The stored baseline carries a `taxonomy_version`, and f12 reads it.** On a mismatch the
 dominance gate is skipped and reported as `baseline_stale`; the absolute floor still applies;
 a passing run re-baselines. This is not fussiness. A taxonomy bump can change what is served
-, so cross-version dominance comparison is not a weaker signal, it is a
-meaningless one. Before this check, a stale baseline silently gated two taxonomy versions. See
+, so cross-version dominance comparison is a meaningless one. 
+Before this check, a stale baseline silently gated two taxonomy versions. See
 `KNOWN_FAILURE_MODES.md` cross-cutting theme 4: **one side of every staleness comparison must
 be the live code version, never a second stored value.**
 
@@ -564,7 +564,7 @@ nightly/release job, not a per-commit gate.
 
 Outputs `eval/ablations/frontier.json`, `frontier.csv` and `frontier_baseline.json`.
 
-### 5.3 eval_fact_presence.py -- shared prose fact-presence judge
+### 5.3 eval_fact_presence.py - shared prose fact-presence judge
 
 Given a text and a list of candidate facts, decide for each whether the text states it. One
 judge call per (patient, text) covers all facts for that text.
@@ -584,7 +584,7 @@ Code under `src/studies/`. One-off characterisations, not
 standing gates: each answers "does this component earn its place" once. The reference-run
 numbers below are quoted so a fork knows what shape of answer to expect, not as targets.
 
-**`ledger_context_ablation/run_ledger_ablation.py` -- does the in-context ledger earn its
+**`ledger_context_ablation/run_ledger_ablation.py` - does the in-context ledger earn its
 place?** Re-runs c1 with the ledger removed from the compactor *prompt* (`ledger_facts=[]`),
 holding span, model, mode and temperature constant. The ledger artifact is untouched; only what
 the writer may see changes. Judges every pinned fact for contradiction and for presence against
@@ -594,7 +594,7 @@ Reference run, 15 deepest-span patients, 603 pinned facts, mode `full`: **contra
 facts rose from 17 to 28 when the ledger was removed from the prompt, roughly a 39% reduction
 attributable to supplying it** (9 patients worse without, 4 better, 2 unchanged). Faithfulness
 0.984 against 0.963; compression effectively unchanged, so the guard costs nothing in length.
-**The premise is validated and is also shown to be insufficient**: 17 contradictions survive
+**The premise is validated but is insufficient**: 17 contradictions survive
 with the ledger supplied, so the prompt reduces the problem and does not eliminate it. The
 guarantee is the ledger as a *stored record*, not as a prompt ingredient.
 
@@ -606,7 +606,7 @@ ledger, so it is confounded across arms and is not an independent check. Contrad
 clean measure here, which is why `eval_fact_presence` carries a `fact_contradiction` verb.
 Flagged pairs land in `flagged_contradictions.csv` and are one judge's opinion, unadjudicated.
 
-**`position_bias/run_position_bias.py` -- is retention driven by salience or by recency?**
+**`position_bias/run_position_bias.py` - is retention driven by salience or by recency?**
 Logistic regression of prose fact-presence on `salience_tier` (ordinal) and normalised source
 position (`admit_seq` mapped 0 = oldest to 1 = newest within the patient). Uses **prose**
 retention because the ledger retains pinned facts near-trivially, leaving no variance to
@@ -619,7 +619,7 @@ other. Modelled survival rises from about 41% for the oldest admissions to about
 most recent, over the observed position range. Overall presence rate 0.464.
 
 Three qualifications the write-up carries, and any citation should carry them too. Pseudo
-R-squared is 0.006, so **both predictors together explain very little** -- recency is real,
+R-squared is 0.006, so **both predictors together explain very little** - recency is real,
 clear and modest, and most of what decides prose survival is captured by neither variable. The
 observed position range is only 0.00 to 0.46, because only admissions old enough to have been
 compacted are eligible, so the newest admissions are structurally absent and the figures are not
@@ -694,7 +694,7 @@ uses, and the sheet asserts that recovery is exact before it can be trusted.
 
 **`merge_loss_triage.py`** is the one that makes the axis tractable. For every merge on all
 three surfaces it asks whether a high-salience concept carried by a member is absent from the
-merged text, then whether it was recovered anywhere else the clinician is served -- any node in
+merged text, then whether it was recovered anywhere else the clinician is served - any node in
 the ledger, or anywhere in the served prose, and finally whether it is in `bhc_text` at all. 
 Only the intersection (dropped, unrecovered, and in source) is surfaced for review. 
 Reference cohort: 1759 merges, 115 loss events, **10 surfaced, of which 2 were rows with salient true losses
@@ -706,7 +706,7 @@ Two cautions carried in the tool's own docstring:
 - **A `REVIEW` row is a candidate, not a defect.** Follow the patient's later course and read
   the source before calling anything a loss. Of the reference cohort's 10, four were
   `code_status_directive` supersessions that read exactly like a lost DNR/DNI and were in fact
-  correct latest-wins behaviour on a documented reversal -- `_SPLIT_EXEMPT` working as intended.
+  correct latest-wins behaviour on a documented reversal - `_SPLIT_EXEMPT` working as intended.
   Two more were artefacts of the keyword screen.
 - **`CHECK_SOURCE` rows are not fabrications.** A concept in no served artifact *and* not found
   in `bhc_text` looks like an invention, but b1 paraphrases, so a legitimate rewording is
@@ -718,8 +718,8 @@ Two cautions carried in the tool's own docstring:
 
 The development cohort drove all taxonomy and prompt tuning, so scores on it are not evidence of
 generalisation. Draw a cohort of new patients (disjoint `subject_id`s, same stratified
-deep-admission tail, new seed), run the **full pipeline with frozen config** -- taxonomy
-version, prompts, thresholds, no tuning -- and compare. A large gap is overfitting.
+deep-admission tail, new seed), run the **full pipeline with frozen config** - taxonomy
+version, prompts, thresholds, no tuning - and compare. A large gap is overfitting.
 
 This is a **between-patient** comparison. e1's incoming admission is only a within-patient one.
 "holdout" means the within-patient incoming admission, "generalisation" means the unseen cohort.
@@ -797,8 +797,8 @@ f3 imports f1 and f9 imports f4's judge, so those pairs must stay consistent. Th
 docstrings and mean the judge-calibration subproject and the dropped ablation suite
 respectively.
 
-A top-level `f0_run_eval.py` orchestrator -- take a `--tier`/`--trigger`, run the relevant
-scripts, aggregate their JSON into one report, return non-zero iff a Tier-0 gate failed -- is
+A top-level `f0_run_eval.py` orchestrator - take a `--tier`/`--trigger`, run the relevant
+scripts, aggregate their JSON into one report, return non-zero iff a Tier-0 gate failed - is
 **not shipped**. That single exit code is what CI should block on, so it is the first thing to
 write when wiring this into your own CI.
 
@@ -907,7 +907,7 @@ people. The routing above still says which fix to reach for.
 
 ---
 
-## 9. Judge calibration -- the Tier-2 prerequisite
+## 9. Judge calibration - the Tier-2 prerequisite
 
 **Every Tier-1 number is unqualified until the judge behind it has been measured against
 clinician labels.** Calibration converts "trust my LLM judge" into an agreement number. It is
@@ -932,14 +932,14 @@ discrimination.
 
 ### How to calibrate yours
 
-**Route A -- qualify against VeriFact-BHC.** Cheap, and what the reference implementation did.
+**Route A - qualify against VeriFact-BHC.** Cheap, and what the reference implementation did.
 VeriFact-BHC is an existing clinician-labelled benchmark of propositions from MIMIC-III brief
 hospital courses, each rated Supported / Not Supported / Not Addressed against the patient's
 EHR, so you do not need to build a labelled set from scratch.
 
 1. Obtain VeriFact-BHC from PhysioNet under the usual credentialing and clone the upstream repo
    (MIT licensed).
-2. Reproduce the pipeline *shape* -- decompose, retrieve, judge, score -- against **your own**
+2. Reproduce the pipeline *shape* - decompose, retrieve, judge, score - against **your own**
    serving stack. Upstream assumes a multi-GPU Docker deployment (vLLM, qdrant, redis/rq,
    containerised embed and rerank services). If you run something simpler, reimplement the shape
    rather than the infrastructure: hybrid dense-plus-sparse retrieval over sentence-level EHR
@@ -953,7 +953,7 @@ EHR, so you do not need to build a labelled set from scratch.
 5. Treat any comparison to VeriFact's published agreement figure as a direction-and-magnitude
    sanity check, not a reproduction, unless you run their exact judge model.
 
-**Route B -- build your own labelled set on your own notes.** More expensive, and the only
+**Route B - build your own labelled set on your own notes.** More expensive, and the only
 thing that establishes site-specific validity. Worth doing once Route A shows the judge is in
 the right region.
 
@@ -1039,16 +1039,16 @@ takes the label as given.
 - **Into a safety class:** the fact gains a T1 pin that the safety-robust branch makes
   unreachable by any exit but `certainty=ruled_out`, so it is physician-immovable. Measured on
   the reference dev cohort: 10 of 69 `severe_adr_allergy` facts (14.5%) were not drug or
-  substance reactions -- PICC lines, an LVAD, a CABG, a hip replacement, an ileocecectomy. This
+  substance reactions - PICC lines, an LVAD, a CABG, a hip replacement, an ileocecectomy. This
   is the accepted cost of the FM-8 fix. It errs safe.
 - **Out of a safety class:** the fact loses the pin and can be pruned by a branch that reads
   only `retention_class`. A drug-intolerance fact routed to `altered_immune_status` was pruned
   for a reason that had nothing to do with its tier, and was never restated across eight
   admissions.
 
-**How much of the taxonomy is separable at all.** Three independent detectors -- taxonomy
+**How much of the taxonomy is separable at all.** Three independent detectors - taxonomy
 self-collision against the classes' own written examples, mined-anchor recall, and embedding
-kNN label purity across three embedding models -- converged on the same rank order. Condensed
+kNN label purity across three embedding models - converged on the same rank order. Condensed
 kNN purity, k=10:
 
 | Class | Purity (range across 3 models) | Reading |
@@ -1073,7 +1073,7 @@ Three consequences for how you report your numbers.
 2. **Per-class recall is only as meaningful as the class is separable.** Quote f1's per-class
    stratification alongside the separability band, or a governance reader will over-read a
    number attached to a class the extractor cannot reliably identify.
-3. **The three embedding models tested -- two biomedical, one general-purpose -- ranked the same facts
+3. **The three embedding models tested - two biomedical, one general-purpose - ranked the same facts
    as anomalous in nearly the same order** (Spearman rho 0.82-0.85), with the general model
    matching the clinical ones. There is no measurable advantage to domain-specific embeddings
    on this task, so do not spend the swap cost expecting one.
@@ -1082,7 +1082,7 @@ The lever here is **model selection and prompt design at b1, not a new gate.** S
 reordering was probed A/B and produced byte-identical output; with a thinking phase the model
 reasons before the JSON begins, so field order is irrelevant and the rationale is post-hoc.
 Thinking traces are not persisted, so the reasoning behind a wrong class cannot be audited
-afterwards -- that is a logging change worth making early. Full detail: `KNOWN_FAILURE_MODES.md`
+afterwards - that is a logging change worth making early. Full detail: `KNOWN_FAILURE_MODES.md`
 FM-9 and `MODEL_SELECTION.md` sections 1 and 2. The row-level detector write-ups contain patient
 information and are gitignored.
 
@@ -1097,7 +1097,7 @@ clinician BHC, covers a single admission and only tests *retention*, not summary
 
 **The only external clinician-labelled calibration is for the JUDGE, not the OUTPUT.** VeriFact
 qualifies the instrument that scores the artifact; it never scores the artifact. It is also
-**not shipped in this repo** -- it depends on separately credentialed data and a different
+**not shipped in this repo** - it depends on separately credentialed data and a different
 serving stack, so a fork must stand it up independently or knowingly report uncalibrated
 numbers.
 
@@ -1209,7 +1209,7 @@ What to have in hand before a governance review. The clinical framing of the sam
 **Three claims to make, and one not to.** Make: the deterministic gates are reproducible and
 block promotion; the metrics have themselves been validated against known-answer corruptions;
 the judge's agreement with clinicians is measured and its limits stated. Do not claim the output
-has been validated against an external human gold standard -- it has not, and none exists for
+has been validated against an external human gold standard - it has not, and none exists for
 this artifact. The honest position is that *retention* is deterministic and auditable, the
 *judge* is calibrated with its error rate published, and the *quality* claim rests on a
 nine-tenths published instrument scored by an imperfect judge, pending a human panel.
@@ -1219,7 +1219,7 @@ nine-tenths published instrument scored by an imperfect judge, pending a human p
 ## 13. Open decisions
 
 - **Active-malignancy hard gate.** Keep it threshold-gated via `gate_swr`, or add the whole
-  `chronic_disease_state` class to the hard-gate set? The latter is broad -- it gates all
+  `chronic_disease_state` class to the hard-gate set? The latter is broad - it gates all
   chronic disease. Clinical call.
 - **`--span all` for SWR.** Whole-established-record recall needs a cheap `hadm -> subject`
   digest. It would also dilute the signal: recent and hot facts sit in the ledger
