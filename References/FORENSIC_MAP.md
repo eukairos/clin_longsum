@@ -309,8 +309,7 @@ Key `(subject_id, hadm_id)`. Writer e1, `cache-rewrite`. Readers d3, f6.
 Row: `subject_id, hadm_id, admit_seq, admit_date, service, bhc_text, summary_md, audit`.
 Carries the held-out admission's raw `bhc_text` - f6 uses it as ground truth.
 `e1 --preview` is print-only and does NOT persist (formerly `--subject`; renamed to kill the
-silent no-persist footgun). Known open bug: `dayfirst=True` in e1's `pd.to_datetime` swaps
-`incoming_date` for ISO interim files, cohort-wide.
+silent no-persist footgun). 
 
 ### 3.16 `output/longitudinal_view.jsonl` - assembled view
 

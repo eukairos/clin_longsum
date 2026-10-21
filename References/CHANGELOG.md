@@ -244,6 +244,5 @@ GROUP BY table_name ORDER BY table_name;
   only soften a fabrication, never delete it. Shared fix candidate.
 - b4's T5 recency prune has no per-node reason recorded, only aggregate counts. Recoverable
   from the raw ledger, but not explained.
-- e1 `dayfirst=True` date-swap: `incoming_date` is swapped cohort-wide. Fix is removing
-  `dayfirst` for ISO interim files, then `e1 --fresh` + `d3`.
+
 

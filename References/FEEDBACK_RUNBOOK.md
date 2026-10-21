@@ -115,7 +115,7 @@ your call at disposition.
 | **S4** | A fact reads as the opposite of the truth | clinician | taxonomy | Polarity is a clinical judgement first. If the evidence shows a rendering fault, **reassign** to engineer explicitly |
 | **S5** | Two conditions merged, or one split across rows | engineer | engineering | FM-7 territory. Check artifact `generated_at` against the 2026-08-01 split fix before investigating |
 | **S6** | A rollup is too coarse — I need the episodes | clinician | taxonomy | Usually by design (T4 `recurrent_episode`). A repeat S6 means the guide is failing |
-| **S7** | A date is wrong, or rows are out of order | engineer | engineering | Check the known `e1` `dayfirst` date-swap defect first |
+| **S7** | A date is wrong, or rows are out of order | engineer | engineering | Files opened in Excel or pandas 3.0 can exhibit day-month swap |
 | **S9** | The paragraph and the ledger disagree | engineer | engineering | Ledger is the reference; the paragraph is what needs correcting |
 | **S10** | Something displayed wrongly or unreadable | engineer | engineering | Cheapest tier — display/routing fixes |
 | **S11** | This does not belong to this patient | engineer | engineering | **Always urgent (U-4).** Also a privacy incident, not only a defect — escalate as one |

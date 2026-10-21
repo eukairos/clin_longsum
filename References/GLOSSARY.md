@@ -17,8 +17,7 @@ read it live rather than trusting this summary.
 When a stage needs to know whether admission A precedes admission B, it compares `admit_seq`.
 
 **`admittime` / `dischtime`** --raw cohort timestamps, Singapore-locale DAY-FIRST (`D/M/YYYY`).
-`cohort.py` is the single `dayfirst=True` parse point; every other stage derives ISO dates from
-it. A stage that re-parses these itself is a bug (that is the open e1 `incoming_date` defect).
+`cohort.py` is the single `dayfirst=True` parse point.
 
 **Fold-in ORDER vs fold-in TIME** - admissions are *processed* in `admit_seq` order, 
 but an old admission is *compacted* only when a later one is promoted, so the compaction of admission 1 
@@ -28,7 +27,7 @@ can run after admission 8 exists in the ledger.
 
 ## Windowing
 
-**Hot window** -- the most recent `N_HOT_DISPLAY` (7) cached per-admission paragraphs, shown as
+**Hot window** - the most recent `N_HOT_DISPLAY` (7) cached per-admission paragraphs, shown as
 Tier 2a. A DISPLAY choice.
 
 **`N_COMPACT_THRESHOLD`** (7) - admissions older than the most recent N are folded into the
@@ -36,7 +35,7 @@ compacted Prior Admissions tier. A COMPACTION choice, deliberately decoupled fro
 `N_HOT_DISPLAY`. Invariant: `N_HOT_DISPLAY <= N_COMPACT_THRESHOLD`, asserted at startup.
 
 **`boundary`** - `n - N_COMPACT_THRESHOLD`, where `n` is the patient's established admission
-count. An admission with `admit_seq <= boundary` has AGED OUT and belongs to Tier 3.
+count. An admission with `admit_seq <= boundary` has AGED OUT and belongs to Tier 3 of the prose.
 
 **Aged out** - past the boundary; a candidate for compaction.
 
@@ -86,7 +85,7 @@ change, and the live derivation is what the pipeline acts on.
 
 **`is_ledger_member`** - the FUNCTION that makes the decision
 (`retention_taxonomy.is_ledger_member(salience_tier, certainty, lifecycle, negative_kind,
-retention_class)`). The rule lives here and nowhere else. Never predict its output -- execute it
+retention_class)`). The rule lives here and nowhere else. Never predict its output - execute it
 on the fact's exact axes.
 
 **`prune_reason`**  - the companion function naming WHICH branch of `is_ledger_member`
@@ -224,10 +223,9 @@ about (a retraction that retracts nothing).
 
 **`occurrence`** - `index | recurrence`. `index` = first time seen across this patient's history.
 
-**`negative_kind`** - `null | absent_or_negative | resolved_relevant | surveillance`. Replaced
-the overloaded `significant_negative` boolean in v2.9. `resolved_relevant` is a positive event
-that HAPPENED and resolved - not an absence. Any non-null value pins the fact **unless
-`certainty=ruled_out`**, whose guard runs first (`prune_reason` then returns `ruled_out`).
+**`negative_kind`** - `null | absent_or_negative | resolved_relevant | surveillance`. 
+`resolved_relevant` is a positive event that HAPPENED and resolved - not an absence. 
+Any non-null value pins the fact **unless `certainty=ruled_out`**, whose guard runs first (`prune_reason` then returns `ruled_out`).
 
 **`provisional`** - how the served ledger marks the `flagged[]` bucket (suspected /
 patient-reported). A single boolean over four clinically distinct situations.
@@ -253,9 +251,8 @@ class is inert. Adding one is change shape G; see `TAXONOMY_EXTENSION.md`.
 
 **`is_safety_robust(class)` / safety-robust class** - public accessor over
 `_SAFETY_ROBUST_CLASSES` (`severe_adr_allergy`, `code_status_directive`). These pin regardless of
-tier, certainty and lifecycle, with `certainty=ruled_out` the SOLE exit: since the FM-8 fix the
-safety branch is tested ABOVE the `superseded` guard, so a de-labelled allergy stays pinned. See
-`amended` above for the second consequence.
+tier, certainty and lifecycle, with `certainty=ruled_out` the SOLE exit: the safety branch is tested ABOVE 
+the `superseded` guard, so a de-labelled allergy stays pinned. See `amended` above for the second consequence.
 
 **`supersedes`** - `fact_id` this fact amends. Usually null at extraction; resolved during b2
 projection.
@@ -286,8 +283,7 @@ paragraph represents; `generated` is the continuation's coverage (covered minus 
 They differ only when a physician prefix exists. c3/c4 judge and correct against `generated`.
 
 **`ledger_facts`** - the span-scoped `RetentionFact` list handed to the compactor and echoed
-back on its output. Named `retention_ledger` in artifacts written before the rename, where it
-also held the patient's WHOLE unscoped ledger.
+back on its output. 
 
 **`_ledger_for_span(facts, max_seq)`** - drops facts first documented after `max_seq`, so a
 paragraph about old admissions is not informed by later ones. Facts with no resolvable
@@ -322,7 +318,7 @@ verdict; a no-think PASS is flagged for review.
 alone, as opposed to from a judgment the note does not make. Measured 2026-08-29 by three
 independent methods that agreed on the rank order. HIGH: `code_status_directive`,
 `chronic_disease_state`, `implanted_device`, `transient_event`, `anatomy_altering_surgery`. LOW:
-`sentinel_event`, `recurrent_episode`, `permanent_condition` -- these are separated from
+`sentinel_event`, `recurrent_episode`, `permanent_condition` - these are separated from
 `chronic_disease_state` by reversibility, recurrence or prognostic weight, none of which the text
 states. **Where a boundary is absent from the input, no model capacity recovers it**, so class
 disagreement inside the low band is expected rather than a defect (FM-9). `severe_adr_allergy` and
@@ -335,7 +331,7 @@ fixed by seeding, temperature 0 and batch-invariant kernels; the pipeline's expo
 (b1 runs at `temperature=0.0`). ITEM-TO-ITEM: the same clinical concept, phrased differently in
 different notes, gets the same label. Varies with the INPUT; fixed by sharper class criteria,
 task decomposition or a better model; the pipeline's exposure is HIGH and it is what class
-separability measures. Selecting a model for determinism targets the wrong one -- a model can be
+separability measures. Selecting a model for determinism targets the wrong one - a model can be
 perfectly reliable and reliably wrong. See `MODEL_SELECTION.md`.
 
 **MISSING vs PINNED_IN_ROLLUP** - c2's two issue types. MISSING = a pinned fact absent from the
@@ -386,7 +382,7 @@ existing corpus at once. The CHANGELOG entry must say which it is; where the gat
 
 **Golden case** - a row in `_NET_GOLDEN_CASES` (`retention_taxonomy.py`) asserting a net's
 behaviour on a verbatim cohort phrase. Status is `required` (a mismatch is a regression), `xfail`
-(a RATIFIED gap that must keep failing -- an XPASS means it closed and the row should be promoted)
+(a RATIFIED gap that must keep failing - an XPASS means it closed and the row should be promoted)
 or `tolerated` (fires wider than clinical intent, harmlessly, because the net is scoped to one
 source class). Run `python src/retention_taxonomy.py --selfcheck` before AND after any net edit;
 non-zero exit means a required case broke or a gap silently closed. Note `conda run` swallows the
@@ -458,7 +454,7 @@ pipeline, is failing to separate the incoming admission from the established rec
 **Urgency floor / U-rule** - urgency answers HOW FAST THE WRONG OUTPUT MUST STOP REACHING A
 READER, not how wrong it is or how costly the fix. Seven deterministic rules (`U-1`..`U-7`) may
 RAISE a card to urgent; only a named human may lower it, with a written reason appended to the
-audit trail. Every urgent card names the rule that fired -- which is what makes per-gate
+audit trail. Every urgent card names the rule that fired - which is what makes per-gate
 calibration readable later. The asymmetry is deliberate: wrongly holding a card costs attention,
 wrongly releasing one costs a patient.
 
