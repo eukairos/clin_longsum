@@ -1,5 +1,5 @@
 # KNOWN_FAILURE_MODES.md
-
+ - 
 Register of failure modes traced to root cause in the `clin_longsum` pipeline. Each entry is a
 RECOGNITION AID: it tells you what the signature looks like in the data and
 which code to read live. Confirm the mechanism against the current source every time - several
@@ -7,9 +7,9 @@ of these have been fixed since they were traced, but a trace over old artifacts 
 still show the old behaviour.
 
 Defect classes (never fold one into another):
-- **clinical / taxonomy** -- a label or governance call. 
-- **engineering / routing** -- code does not do what it intends. 
-- **prompt wording** -- the instruction produced the behaviour. Propose a reword.
+- **clinical / taxonomy** - a label or governance call. 
+- **engineering / routing** - code does not do what it intends. 
+- **prompt wording** - the instruction produced the behaviour. Propose a reword.
 
 Status vocabulary: `open` | `partly fixed` | `fixed` | `by design`.
 Line references are anchors for grepping.
@@ -25,7 +25,7 @@ fabricated "Diabetes mellitus" ledger entry.
 | | |
 |---|---|
 | Class | prompt wording (primary) + engineering (repair loop, feed-forward) |
-| Status | partly fixed -- b1 extraction prompt carries an explicit REDACTIONS rule; the repair loop and the feed-forward remain open |
+| Status | partly fixed - b1 extraction prompt carries an explicit REDACTIONS rule; the repair loop and the feed-forward remain open |
 | Stages | b1 `_EXTRACT_TMPL` -> b1 `_UPDATE_TMPL` -> b1 `_update_known` -> b2 `_build_node` |
 
 **Signature in data**
@@ -37,9 +37,9 @@ fabricated "Diabetes mellitus" ledger entry.
 **Mechanism**
 1. `_EXTRACT_TMPL` instructs the model to surface a chronic/permanent substrate named in the
    note. Without a counterweight this reads as licence to name an unnamed substrate. The REDACTIONS rule (`"___" is a removed de-identification token, not a fact`) and the "SURFACE THE SUBSTRATE THE NOTE STATES" clause have since been added.
-2. `_FEEDBACK_TMPL` (step B) DOES see the note and has check 5(b) for exactly this -- an
+2. `_FEEDBACK_TMPL` (step B of b1) DOES see the note and has check 5(b) in its checklist for exactly this - an
    inferred substrate that is not in the note. It can detect the fabrication.
-3. `_UPDATE_TMPL` (step C) DOES NOT see the note. It receives only the issue list and the
+3. `_UPDATE_TMPL` (step C of b1) DOES NOT see the note. It receives only the issue list and the
    current facts. A self-critique that can compare only against facts can DEMOTE a fabricated
    fact (lower tier, lower certainty) but has no evidence with which to DELETE it. This is
    FM-6.
@@ -49,13 +49,13 @@ fabricated "Diabetes mellitus" ledger entry.
 
 **Confirm it**
 - Grep the fabricated string across every `bhc_text` for that `subject_id`. Absent = fabricated.
-  **Match on WORD BOUNDARIES, and read the surrounding clause before crediting a hit** -- a
+  **Match on WORD BOUNDARIES, and read the surrounding clause before crediting a hit** - a
   substring search over-matches, and it over-matches in the direction that hides this mode. A
   spurious hit reads as support and closes the investigation. See cross-cutting theme 7; the
   traced case is `adrenal` matching `hypoadrenalism` inside "no evidence of hypoadrenalism".
 - Find the fact in `retention_facts.jsonl`, read its `rationale`.
 - Check whether the same text appears in a LATER admission's fact set with
-  `occurrence=recurrence` -- that is the feed-forward, not independent confirmation.
+  `occurrence=recurrence` - that is the feed-forward, not independent confirmation.
 
 **Open**
 - Give `_UPDATE_TMPL` the note (shared fix with FM-6).
@@ -111,7 +111,7 @@ cluster. A fabricated or downgraded fact can end up displayed at permanent-basel
 
 **Signature in data**
 - A ledger node whose `salience_tier` is stronger than the tier of the fact its `text` came
-  from -- compare the node against each `fact_id` in `fact_ids`.
+  from - compare the node against each `fact_id` in `fact_ids`.
 - A node in `flagged[]` (rendered `provisional=true`) carrying a T1/T2 tier.
 - A node whose `text` matches the LATEST mention but whose `n_mentions` implies earlier ones
   with different wording.
@@ -128,10 +128,10 @@ So tier comes from one mention, everything else from another. A fact downgraded 
 mention keeps the strongest tier it ever held.
 
 There is a SECOND, later split in `_merge_group` (called from `_consolidate`): the
-representative node is picked by `(tier rank, certainty != "confirmed", -len(text))` -- so
+representative node is picked by `(tier rank, certainty != "confirmed", -len(text))` - so
 consolidation can again swap `text` / `certainty` / `current_lifecycle` to a different member
-than `_build_node` chose, this time preferring the LONGEST text. Check both when a node's
-attributes look mismatched.
+than `_build_node` chose, this time preferring the MOST RECENT text. Check both when a node's
+attributes look mismatched. Ties are resolved to the latest mention.
 
 Routing in `_project_patient`, on the built node:
 ```
@@ -142,7 +142,7 @@ otherwise                          -> flagged   (provisional / patient-reported)
 `lifecycle` is NOT consulted except for `superseded`, so any non-confirmed CANDIDATE is served
 `provisional=true`. Note what that set actually is: `is_ledger_member` has already excluded
 `suspected + resolved / in_remission` (outside `sentinel_event`), so those never become
-candidates -- they fall through to `dropped[]` with reason `suspected_inactive` (FM-5). The
+candidates - they fall through to `dropped[]` with reason `suspected_inactive` (FM-5). The
 flagged bucket is therefore `suspected + active` T1-T3, `suspected sentinel_event` at any
 lifecycle, `patient_reported` in the three retained classes, and non-confirmed facts carrying a
 `negative_kind` or in a safety-robust class.
@@ -164,7 +164,7 @@ removing the tier rule without addressing what replaces the safety it buys.
 - Whether a node should carry per-attribute provenance (which `fact_id` each attribute came
   from) rather than a single `fact_ids` union.
 - Whether the flagged bucket should distinguish `suspected + active` from `suspected sentinel`
-  at any lifecycle, rather than serving both as one PROVISIONAL class -- clinical call.
+  at any lifecycle, rather than serving both as one PROVISIONAL class - clinical call.
 - `dropped[]` does NOT address this mode. It records facts that were never
   candidates; FM-2 is about how candidates are assembled and routed. Both split points and the
   PROVISIONAL rule are untouched.
@@ -179,7 +179,7 @@ c1, summarising an early admission, asserts a condition first documented years l
 | | |
 |---|---|
 | Class | engineering / routing (three separate mechanisms) |
-| Status | fixed in `clin_longsum` -- verify against the artifact's generation date before reusing the diagnosis |
+| Status | fixed - verify against the artifact's generation date before reusing the diagnosis |
 | Stages | c1 `_node_to_fact` / `_ledger_for_span` / `_ledger_lines`; c3 gate; fold-in timing |
 
 **Signature in data**
@@ -189,7 +189,7 @@ c1, summarising an early admission, asserts a condition first documented years l
 - The corresponding `compaction_faithfulness.jsonl` row flags it in `failed_statements` while
   `pass` is `true`.
 
-**Mechanism (four contributing defects, three now fixed)**
+**Mechanism (four contributing defects, three fixed)**
 1. **Fold-in timing.** An admission ages out of the hot window only when a later admission is
    promoted. For a setup with hot window of seven admissions, the compaction of admission 1 therefore runs AFTER 
    admission 8 exists in the ledger. Ordering by `admit_seq` does not prevent this - fold-in ORDER and fold-in TIME are
@@ -203,7 +203,7 @@ c1, summarising an early admission, asserts a condition first documented years l
    EARLIEST `source_hadm_id` and populates `admit_seq`; `_ledger_for_span(facts, max_seq)`
    drops facts first documented after the span; `_ledger_lines` renders `[adm N]` per fact.
    Incremental mode scopes PER FOLD (`_ledger_for_span(ledger_facts, a.admit_seq)`), not per
-   patient. Residual: facts with unresolvable `admit_seq` are KEPT deliberately -- dropping a
+   patient. Residual: facts with unresolvable `admit_seq` are KEPT deliberately - dropping a
    pinned fact is judged worse than showing one slightly ahead of the span.
 4. **c3/c4 gate.** FIXED. c4 gates on the PRESENCE of unsupported statements, not on the
    aggregate `pass` boolean. 
@@ -247,7 +247,7 @@ case: hypercalcaemia became a bare "Lymphoma count:1".
 **Signature in data**
 - A fact present in `retention_facts.jsonl` with `retention_class=recurrent_episode` and a
   populated `parent_condition`, absent from `nodes[]` / `flagged[]`, with an `episodes[]` entry
-  whose `parent_condition` matches -- and no trace of the fact's own wording anywhere in the
+  whose `parent_condition` matches - and no trace of the fact's own wording anywhere in the
   ledger.
 - Whether such a fact reads MISSING or ROLLUP_ONLY in f1 reduces to LEXICAL OVERLAP between the
   instance text and the episode's `parent_condition` label: `c2._where_represented`'s episode
@@ -258,7 +258,7 @@ case: hypercalcaemia became a bare "Lymphoma count:1".
 
 **Confirmed instances (test cohort, 75 patients / 1742 pinned facts)**
 All eight of the cohort's f1 losses, sharing one signature: T4 / `recurrent_episode` /
-`confirmed` / `negative_kind=resolved_relevant`. Method step 5 was run on all eight.
+`confirmed` / `negative_kind=resolved_relevant`. Method step 5 of /longsum-forensics skill was run on all eight.
 
 | subject | fact | retained instead as |
 |---|---|---|
@@ -269,11 +269,11 @@ All eight of the cohort's f1 losses, sharing one signature: T4 / `recurrent_epis
 | 5 | Acute hyperkalemia episode | T3 `chronic_disease_state` "Chronic hyperkalemia" |
 | 6 | Hyperphosphatemia | T3 "CKD baseline GFR ~30" (n=8) |
 | 7 | Painless rectal bleeding, resolved | 3 x T2 `sentinel_event` + T3 diverticulosis + T3 hemorrhoids |
-| 8 | ARF on chronic renal failure (ROLLUP_ONLY) | episode parent "Chronic renal failure (CRF)" -- by design |
+| 8 | ARF on chronic renal failure (ROLLUP_ONLY) | episode parent "Chronic renal failure (CRF)" - by design |
 
 Six of eight are also restated in later clinician-authored BHCs. NO CLINICAL LOSS in any case:
 concept-level retention held throughout; only instance-level retention failed. Case 1 is
-the sharpest -- an episode rollup exists for that exact hadm and still reads MISSING, because
+the sharpest - an episode rollup exists for that exact hadm and still reads MISSING, because
 "Acute glycemic decompensation with glucose exceeding 500 mg/dL" and "Diabetes mellitus" share
 zero content tokens.
 
@@ -285,7 +285,7 @@ the pin is UNREACHABLE BY CONSTRUCTION. Not a drop; a pin that can never be hono
 
 Do NOT exempt T4/`recurrent_episode` from `gate_signeg` to clear the red. At fact level the
 gate is a true positive; at concept level it is a false positive. The fix belongs in the homing
-rule or the rollup shape, or upstream in what earns `resolved_relevant` at b1 -- cases 90000013
+rule or the rollup shape, or upstream in what earns `resolved_relevant` at b1 - cases 90000013
 and 90000014/Hyperphosphatemia look over-assigned, both being lab derangements of an already-pinned
 chronic state.
 
@@ -322,7 +322,7 @@ lands in NO list, with no audit trace.
 
 | | |
 |---|---|
-| Class | engineering / routing (the missing audit list) -- the pruning itself is often by design |
+| Class | engineering / routing (the missing audit list) - the pruning itself is often by design |
 | Status | FIXED : the prune is recorded. The routing decision is unchanged |
 | Stages | b2 `_project_patient` / `_is_candidate` / `tax.is_ledger_member` / `tax.prune_reason` |
 
@@ -388,7 +388,7 @@ Shared root of FM-1 and FM-3.
 | | |
 |---|---|
 | Class | prompt wording / engineering (what is passed to the step) |
-| Status | open -- shared fix candidate |
+| Status | open - shared fix candidate |
 | Stages | b1 `_UPDATE_TMPL`; c1 `_INCR_TMPL` / `_FULL_TMPL`; c4 correction |
 
 **Signature in data**
@@ -421,7 +421,7 @@ second full-note pass per repair.
 
 A confirmed chronic-disease fact is absent by keyword from every ledger bucket
 (nodes/flagged/considered_excluded/dropped/amended) for a patient who plausibly has
-the condition -- but its fact_id is alive inside a *different* node, merged and
+the condition - but its fact_id is alive inside a *different* node, merged and
 relabelled under one of its own known complications.
 
 | | |
@@ -433,7 +433,7 @@ relabelled under one of its own known complications.
 **Signature in data**
 - A T1-T3 confirmed fact in `retention_facts.jsonl` matches no node/flagged/dropped/amended
   entry BY TEXT in `retention_ledger.jsonl` for that subject.
-- Its `fact_id`, however, IS present inside another node's `fact_ids` array -- one whose
+- Its `fact_id`, however, IS present inside another node's `fact_ids` array - one whose
   own `retention_class`/`salience_tier`/`text` describe a related but distinct condition
   (typically a well-known complication of the swallowed one).
 
@@ -465,11 +465,10 @@ diagnosis before concluding FM-7.
 doesn't match, check `_CONDITION_KEYS` and `_cluster`'s token overlap in
 `b2_build_ledger.py` for why they were judged the same condition.
 
-**Corrected mechanism.** The original write-up above blamed `_CONDITION_KEYS`
-and `_consolidate`. A cohort scan of all three cohorts found 106 affected nodes and a
+**Corrected mechanism.** A cohort scan of all three cohorts found 106 affected nodes and a
 compound bridge in **106 of 106** - the curated key is one route to it, not the cause, and
-49 of the 53 orphaning events in the test cohort happen at `_cluster` / `_build_node`, one
-stage earlier than `_consolidate`. The driver is a fact naming two conditions in one string
+49 of the 53 orphaning events in the test cohort happen at `_cluster` / `_build_node`. 
+The driver is a fact naming two conditions in one string
 ("Coronary artery disease and peripheral vascular disease"; "Chronic thrombocytopenia likely
 secondary to cirrhosis"). It matches both, bridges them into one group, and latest-wins
 wording then drops whichever condition is absent from the newest phrasing.
@@ -495,7 +494,7 @@ token with the seed.
 **Residual: the guard is only as good as the tokens**
 `_split_cluster` partitions on `_identity_tokens`, so any junk token shared by two unrelated
 conditions defeats it. `_content_tokens` split on `[A-Za-z0-9]+`, which shattered the possessive
-and the `s/p` abbreviation into a bare `s` -- absent from both `_STOPWORDS` and `_QUALIFIERS`, so
+and the `s/p` abbreviation into a bare `s` - absent from both `_STOPWORDS` and `_QUALIFIERS`, so
 it survived `_specific()`. `"Crohn's disease"` and `"Coronary artery disease s/p LAD stent
 placement"` shared exactly `{s}` at overlap 0.667 >= `CLUSTER_THRESH`, clustered, and the guard
 returned a SINGLE partition because the seed's identity tokens carried the same `s`. A CAD fact
@@ -503,7 +502,7 @@ was served as "Crohn's disease". Executed live the guard still returned one part
 
 Closed by `_normalize_surface()` in `b2_build_ledger.py`, applied by BOTH `_content_tokens` and
 `_phrase`: strips the possessive suffix (ASCII and U+2019) and drops `s/p`. Verified over the full
-`_project_patient` path on all 100 `data_test` subjects -- 6835 rows and 3489 nodes unchanged, one
+`_project_patient` path on all 100 `data_test` subjects - 6835 rows and 3489 nodes unchanged, one
 subject changed. Folding to `crohns` was tested and rejected (it split "Crohn's disease" from
 "Crohn disease" and "Alzheimer's dementia" from "Alzheimer disease dementia").
 
@@ -512,7 +511,7 @@ conditions.** `data_test` carries 332 `2`, 254 `1`, 140 `c`, 66 `x` single-char 
 Digits are load-bearing ("Type 1" vs "Type 2 diabetes") and `c` is load-bearing ("Hepatitis C"),
 so a blanket single-char filter is NOT safe. When tracing a cross-condition merge, print
 `_identity_tokens` for every member against the seed and check whether the shared set is
-meaningful -- do not assume the guard covered it.
+meaningful - do not assume the guard covered it.
 
 ---
 
@@ -524,7 +523,7 @@ A T1 contraindication tagged `lifecycle=superseded` is un-pinned by the gate, ro
 | | |
 |---|---|
 | Class | clinical / taxonomy (branch order) + prompt wording (b1 mis-assigns `superseded`) |
-| Status | FIXED at `_build_node`. Prompt fix STAGED, not yet exercised. **Two residuals OPEN at `_merge_group` and in the guard's null handling - patches written and sandbox-tested** |
+| Status | FIXED at `_build_node`. Prompt fix STAGED, not yet exercised.  |
 | Stages | `tax.is_ledger_member` / b2 `_project_patient` / b2 `_build_node` / `tax.render_for_prompt` |
 
 **Signature in data**
@@ -537,13 +536,13 @@ Starting query on a pre-fix ledger:
 ```
 amended node WHERE retention_class IN (severe_adr_allergy, code_status_directive)
 ```
-Aggravated when `n_mentions == 1` -- a singleton has no earlier mention to supersede, so
+Aggravated when `n_mentions == 1` - a singleton has no earlier mention to supersede, so
 `superseded` cannot be a retraction and must be a mis-tag.
 
 **Mechanism**
 Two independent gates, both wrong in the same direction:
 1. `is_ledger_member` tested `lifecycle == "superseded"` at row 2, ABOVE the
-   `_SAFETY_ROBUST_CLASSES` branch at row 3 -- contradicting that branch's own docstring
+   `_SAFETY_ROBUST_CLASSES` branch at row 3 - contradicting that branch's own docstring
    claim of robustness to *lifecycle* mis-tagging. The fact un-pins.
 2. b2 `_project_patient` routes on `node.current_lifecycle == "superseded"` DIRECTLY, never
    consulting `is_ledger_member`. So even a pinned safety node still landed in `amended`.
@@ -564,7 +563,7 @@ than falling to `dropped[]` and firing `prune_reason`. The FM-5 audit trail does
   seq 1 records hypertension treated with lisinopril, seq 6 the adverse reaction - the ADR is
   the LATER event and its lifecycle should be `active`.
 - Genuine de-labels were instead expressed as `certainty=ruled_out` (3 cases, incl. 90000019
-  penicillin-associated haemolysis) and routed correctly to `considered_excluded`. B1 had the
+  penicillin-associated haemolysis) and routed correctly to `considered_excluded`. b1 had the
   two senses exactly inverted relative to the taxonomy.
 - The other 2 are benign: 90000020 PEG tube superseded by a served G-J tube (device
   replacement, working); 90000021 a T5 `transient_event` that `not_pinned_tier` would have
@@ -616,7 +615,7 @@ setting `negative_kind`, that value is `None`, and the guard faithfully forwards
 §7 of `HOW_TO_READ_THE_LEDGER.md` already warns physicians about. The guard does not create the
 mis-tag, but it is the reason the mis-tag survives to the served row.
 
-Live count, `data_test` : **1 served node** -- `Adverse reaction to lisinopril presenting as breathlessness`, T1 `severe_adr_allergy`,
+Live count, `data_test` : **1 served node** - `Adverse reaction to lisinopril presenting as breathlessness`, T1 `severe_adr_allergy`,
 `confirmed`, `superseded`, `negative_kind` NULL. Plus 2 in `amended` (not served): a
 lisinopril nephrotoxicity and a PEG tube.
 
@@ -627,7 +626,7 @@ lisinopril nephrotoxicity and a PEG tube.
 - (b) `SUPERSEDED_DEFAULT_NK = "absent_or_negative"`, used by both `_build_node` and
   `_merge_group` when a retraction carries no explicit kind. **Mechanical, not a clinical
   judgment:** `NEGATIVE_KIND` has three non-null values and two are wrong for a retraction by
-  definition -- `resolved_relevant` means the thing happened and ended, `surveillance` means it
+  definition - `resolved_relevant` means the thing happened and ended, `surveillance` means it
   is being watched for. A withdrawn record is neither, so `absent_or_negative` is the only
   coherent value. The default is entailed by the taxonomy's own definitions.
 
@@ -644,7 +643,7 @@ nodes goes 1 -> 0. So applying both is a near-no-op on current artifacts - which
 for landing it cheaply, and the reason it will stay unexercised.
 
 **One of the three changed nodes is an upstream mis-tag, not a case against the default.** `Prior lisinopril-associated nephrotoxicity, previously discontinued then resumed at lower dose`. A drug that was RESUMED is drug SUBSTITUTION, not record retraction, so
-`lifecycle=superseded` is wrong at b1 -- the exact confusion the audit found in 4 of 4
+`lifecycle=superseded` is wrong at b1 - the exact confusion the audit found in 4 of 4
 `amended` nodes and that `render_for_prompt` was reworded to prevent. The default propagates a
 wrong premise faithfully. Remedy is re-extraction of that admission, not a different default.
 Unserved today (it is in the `amended` bucket).
@@ -681,16 +680,16 @@ schema change:
 2. **API.** `longsum_api` computes it per row and returns it as a derived field alongside the
    ledger node. Python-side, so the single definition is actually reused rather than
    re-implemented in JS.
-3. **Render distinctly** in `ledgerTable` -- not the bare word `superseded`. State the reading
+3. **Render distinctly** in `ledgerTable` - not the bare word `superseded`. State the reading
    rule at the point of use, e.g. `superseded (mis-tagged - read as ACTIVE)`, in the red badge
    style already used for `(absent)`. Do NOT silently rewrite the lifecycle to `active`: that
    hides a live data defect behind a correct-looking display, and the mis-tag still needs fixing
    at b1.
 
-This is containment, not repair -- the same split the feedback loop uses. The display stops the
+This is containment, not repair - the same split the feedback loop uses. The display stops the
 row being misread today; the b1 re-extraction fixes the record on the normal cadence.
 
-**Worklist query for a batched re-extraction** (no schema change needed -- the axes are stored):
+**Worklist query for a batched re-extraction** (no schema change needed - the axes are stored):
 
 ```sql
 SELECT subject_id, hadm_id, fact_id, salience_tier, retention_class, text
@@ -711,7 +710,7 @@ faithful, axis wrong. Every downstream stage carries the label without question.
 
 | | |
 |---|---|
-| Class | prompt wording / model judgment at b1. NOT engineering -- routing does exactly what the label tells it |
+| Class | prompt wording / model judgment at b1. NOT engineering - routing does exactly what the label tells it |
 | Status | OPEN. No fix landed. One instance did not reproduce at current code (see below) |
 | Stages | b1 `_FACTS_SCHEMA` (L119 enum) / b1 `_normalise_fact` / `tax.normalize_fact` (no-op here) / everything downstream |
 
@@ -725,14 +724,14 @@ b1" had no entry.
 There is no single grep. The label is valid, so no validator fires, `prune_reason` is often None,
 and nothing lands in `dropped[]`. Three sub-signatures, each found by a different instrument:
 
-1. **Isolated slip** -- one fact in a call, class semantically unrelated to the text, other facts
+1. **Isolated slip** - one fact in a call, class semantically unrelated to the text, other facts
    in the same call correct. Found only by embedding kNN (D3). Example "Lisinopril-induced cough" -> 
    `anatomy_altering_surgery`, T2, in ledger.
-2. **Template block** -- several facts sharing a syntactic template fail together. Example
+2. **Template block** - several facts sharing a syntactic template fail together. Example
    : three "X performed in the past" surgical and device facts ->
    `severe_adr_allergy` T1, while the other 13 facts in the call are correct. Rationales were
    CORRECT and contradicted their own labels.
-3. **Severity-gated substitution** -- the model reads `severe_adr_allergy` as a severity gate and,
+3. **Severity-gated substitution** - the model reads `severe_adr_allergy` as a severity gate and,
    when severity is unstated, substitutes a class suggested by a surface word. Example
    "Tylenol (acetaminophen) allergy documented" ->
    `altered_immune_status`, rationale "...severity not specified", while the magnesium allergy in
@@ -754,7 +753,7 @@ WHERE retention_class = 'anatomy_altering_surgery'
 
 **Mechanism**
 `_FACTS_SCHEMA` constrains `retention_class` to `tax.class_ids()`, so the model must return a
-valid member -- it cannot return an invalid one, and `_normalise_fact`'s unknown-class fallback
+valid member - it cannot return an invalid one, and `_normalise_fact`'s unknown-class fallback
 never fires. `tax.normalize_fact` repairs only surveillance promotion and `recurrent_episode`
 reclassification, so no taxonomy function can correct a wrong-but-valid class. `floor_tier` then
 applies the WRONG class's default tier, compounding it.
@@ -762,7 +761,7 @@ applies the WRONG class's default tier, compounding it.
 **Consequence depends on direction**
 - INTO a safety class: the fact gains a T1 pin that `_SAFETY_ROBUST_CLASSES` makes unreachable by
   any exit but `certainty=ruled_out`. 10 of 69 `severe_adr_allergy`
-  facts (14.5%) are not drug or substance reactions -- PICC lines, an LVAD, CABG, hip replacement,
+  facts (14.5%) are not drug or substance reactions - PICC lines, an LVAD, CABG, hip replacement,
   an ileocecectomy. All `confirmed`, so physician-immovable. This is the cost of the FM-8 fix,
   argued at FM-8 lines 68-88 and now measured. 
 - OUT OF a safety class: the fact loses the pin and can be pruned. ("Aspirin intolerance preventing aspirin use") went to   `altered_immune_status` and was pruned `patient_reported_other_class` - NOT a tier prune. 
@@ -804,7 +803,7 @@ this is FM-9 and not FM-1. Check the other facts in the same call to tell sub-si
    (`retention_taxonomy.TAXONOMY_VERSION`). Only artifact-vs-code answers "is this record current".
 5. **The judge is a triage signal, not a finding.** deepseek-r1:32b Not Supported PPV is about
    0.24. A `failed_statement` justifies looking; it does not establish a fabrication. Only a
-   grep of `bhc_text` does -- see theme 7 for how to run that grep safely.
+   grep of `bhc_text` does - see theme 7 for how to run that grep safely.
 6. **Reasoning traces are not persisted.** For any question of the form "did the model infer X
    or merely hedge", the answer is not recoverable from the artifacts.
 7. **Substring matching over-matches, in the direction that hides defects.** The register's
@@ -814,7 +813,7 @@ this is FM-9 and not FM-1. Check the other facts in the same call to tell sub-si
    those reads as "the note supports it" and closes the enquiry. Match on word boundaries, fold
    plurals, check a window before the hit for negation cues, and score each admission's note
    SEPARATELY rather than the patient's notes as one blob. The pipeline's own code already does
-   this -- `c2._where_represented` clusters on `_content_tokens` -- so the hazard is in manual
+   this - `c2._where_represented` clusters on `_content_tokens` - so the hazard is in manual
    analysis and in prose instructions that say "grep", not in the pipeline.
 8. **Absence from the ledger is EXPECTED for the incoming admission.** The ledger is the
    established record, built from PRIOR admissions. A fact documented for the first time in the
