@@ -419,7 +419,7 @@ physician-edited region was mutated. **Do not re-run c1 to fix this, and never w
 a physician edit outranks any generated artifact:
 
 1. Recover the prefix text from the DB audit trail (`compaction_change` / `compaction_review`).
-   Ruled authoritative for restoration (Stay, 2026-08-02) – no need to return to the physician
+   Ruled authoritative for restoration – no need to return to the physician
    to re-enter it.
 2. Restore it into the compaction record.
 3. Re-run c1 for the subject WITH the pin intact, then c3 → c4 → coordinator → d3.
@@ -509,6 +509,6 @@ applies the weaker `provenance_stray` check instead of equality. A pinned subjec
   first f12 run re-baselines itself — do not hand-edit the file, and do not read a `SKIPPED`
   dominance gate as a pass.
 - **VRAM**: one ~35B model at a time; stages unload on exit; one judge job at a time.
-- **Fold-in ≈ full per-subject pass** — it now runs d1/c2/e2 + `db_persist_compaction`/
+- **Fold-in ≈ full per-subject pass** — runs d1/c2/e2 + `db_persist_compaction`/
   `db_persist_retention` + a c5 notify (served prose, faithfulness, retention flags, and the incoming
   RAG embedding all stay fresh). Only b3 and the f\* evals are outside it; run those on the next full pass.
