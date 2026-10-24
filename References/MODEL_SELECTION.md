@@ -55,7 +55,7 @@ single global binding makes every experiment expensive enough that it does not g
 
 An internal audit of the reference configuration found that the extractor reliably produces
 *schema-valid* output and *content-faithful* fact text, while still assigning the wrong taxonomy
-class sometimes -- for instance a drug-reaction fact filed under a procedural or
+class sometimes - for instance a drug-reaction fact filed under a procedural or
 immune-status class. Registered as FM-9 in `KNOWN_FAILURE_MODES.md`.
 
 Two properties of that failure shape everything below:
@@ -64,8 +64,8 @@ Two properties of that failure shape everything below:
   guarantees nothing about which member. This matches the published finding that semantic errors
   persist even when structural validity is achieved [7].
 - **It is stable, not random.** At `temperature=0.0` a rerun will usually reproduce it. The
-  variance is across *inputs* -- the same clinical concept, phrased differently in different
-  notes, receiving different classes -- not across runs. See section 6.
+  variance is across *inputs* - the same clinical concept, phrased differently in different
+  notes, receiving different classes - not across runs. See section 6.
 
 ---
 
@@ -75,7 +75,7 @@ Two properties of that failure shape everything below:
 |---|---|
 | Decides | what facts exist, their taxonomy axes, and every word of served prose |
 | Build path | yes, all of it |
-| Failure | silent and permanent -- wrong output is indistinguishable from right output downstream |
+| Failure | silent and permanent - wrong output is indistinguishable from right output downstream |
 | Governing metric | class agreement across paraphrases of one concept (section 6); faithfulness against `bhc_text` |
 | Pin | `model_id` + `version` in `MODELS`; `PROMPT_VERSIONS`; `TAXONOMY_VERSION`. All three are stamped on every `AuditRecord` |
 | Swap costs | re-extraction (b1) or re-generation (c1/d1/d2) for every affected role, plus revalidation |
@@ -92,7 +92,7 @@ disproportionately well on knowledge-heavy tasks such as TriviaQA [1]. *Mixture 
 sharpens this: holding active parameters fixed and increasing the number of experts, memorization
 improves consistently while reasoning capability saturates, with a proof that graph problems exist
 which no number of experts of a given width can solve but a slightly wider dense model solves
-easily [2]. The same paper is careful that the per-parameter disadvantage is task-dependent -- it
+easily [2]. The same paper is careful that the per-parameter disadvantage is task-dependent - it
 holds on reasoning tasks, but on memory-intensive tasks equally-sized MoEs match dense
 transformers [2].
 
@@ -118,8 +118,7 @@ selection and alter the computation path [10]. Validate on your own data.
 
 ### Medical-domain model or general-purpose?
 
-Do not assume a medically fine-tuned model wins. An oncology-specific model outperformed Llama 3
-at predicting cancer progression, while without task-specific fine-tuning a general-purpose
+Do not assume a medically fine-tuned model wins. Without task-specific fine-tuning a general-purpose
 Llama 3.1 8B outperformed Llama-3-8B-UltraMedical at structuring radiology and pathology
 reports [14]. The same review notes that evidence for a consistent benefit from
 medical-specialised models in *structured information extraction* is limited, and that where
@@ -133,8 +132,8 @@ clinical reasoning: the note states the facts and the model segments and labels 
 that format restrictions, particularly JSON-mode constrained decoding, hinder reasoning ability
 while enhancing classification-task accuracy, with stricter constraints producing greater
 degradation on reasoning tasks [15]. b1's axis assignment is nominally classification, so the enum
-constraint is justified. The step that precedes it -- deciding what the facts *are*, and splitting
-compound statements -- is closer to reasoning and is the part exposed to this effect.
+constraint is justified. The step that precedes it - deciding what the facts *are*, and splitting
+compound statements - is closer to reasoning and is the part exposed to this effect.
 
 **Schema field order was tested here and does not matter.** The reference schema emits
 `retention_class` before `rationale`, and `rationale` is not in `required`, which suggests the
@@ -142,7 +141,7 @@ label is committed before any justification exists. An A/B on one admission, ide
 `rationale` moved ahead of the label and marked required, produced **byte-identical output**. With
 a thinking phase enabled the model reasons before the JSON begins, so the rationale is a post-hoc
 summary and its position is irrelevant. Do not spend effort here. (Caveat: the comparison parsed
-the JSON, so key order was not inspected -- "no effect" and "the backend did not honour the
+the JSON, so key order was not inspected - "no effect" and "the backend did not honour the
 reorder" are not distinguished.) The real gap is that **thinking traces are not persisted**, so
 the reasoning behind a wrong class cannot be audited afterwards. That is a logging change.
 
@@ -150,23 +149,23 @@ the reasoning behind a wrong class cannot be audited afterwards. That is a loggi
 small validation sample reduced full-scale F1 from 0.948 to 0.914 [6]. Validate at full scale.
 
 **Atomicity is a prompt problem before it is a model problem.** The largest class of defects found
-in the reference cohort was compound facts -- one fact carrying two separately class-worthy
+in the reference cohort was compound facts - one fact carrying two separately class-worthy
 concepts, so whichever class is assigned is arbitrary between them. The b1 prompt already forbids
 this explicitly, and nothing downstream splits them. A model that follows the rule it was given
 fixes more than a larger model that does not.
 
 ---
 
-## 3. The judge at c3 -- on the build path
+## 3. The judge at c3 - on the build path
 
 | | |
 |---|---|
 | Decides | which compacted statements are unsupported |
-| Build path | **yes.** `c4_correct.py` is gated on the PRESENCE of `failed_statements`, not on c3's `pass` boolean |
+| Build path | **yes.** `c4_correct.py` is gated on the PRESENCE of `failed_statements` |
 | Failure | a false positive causes c4 to soften a CORRECT statement, automatically, with no human in the loop |
 | Governing metric | chance-corrected agreement against clinician labels, and recall of true unsupported statements |
 | Pin | `model_id` + `version`, `num_ctx`, the judge prompt version, and the 0.6 threshold |
-| Swap costs | full recalibration -- the existing agreement figures do not transfer |
+| Swap costs | full recalibration - the existing agreement figures do not transfer |
 
 This is the role most likely to be under-scrutinised, because "the judge" sounds like an evaluator
 sitting outside the system. At c3 it is not. Its verdicts trigger automatic edits to text a
@@ -189,21 +188,21 @@ review minutes while a false negative lets a fabrication through unseen. A judge
 overall accuracy but worse recall is a worse judge for this pipeline.
 
 **Report chance-corrected agreement, never raw agreement.** Raw agreement overstates
-discrimination badly -- one large evaluation found kappa deflation of 33-41 percentage points
+discrimination badly - one large evaluation found kappa deflation of 33-41 percentage points
 across 21 judges [13].
 
 **Lineage independence is right, and it is a property of the (generator, judge) PAIR.** The
 reference judge was chosen partly because it comes from a different lineage than the generation
 model. That is well founded: judges exhibit self-preference bias and family bias, systematically
 assigning higher ratings to outputs from models of their own family [16], with one analysis
-attributing the mechanism to perplexity -- models score low-perplexity text higher, and their own
+attributing the mechanism to perplexity - models score low-perplexity text higher, and their own
 family's output is low-perplexity to them [17]. **The practical consequence: re-check independence
 whenever you change the GENERATION model, not only when you change the judge.** Swapping the
 generator into the judge's family silently destroys the property you paid for.
 
 **Check the BACKBONE, not the model name.** Distilled reasoning models are named after the
 distillation source, not the base they were distilled onto. The reference judge, `deepseek-r1:32b`
-served by Ollama, is almost certainly **DeepSeek-R1-Distill-Qwen-32B** -- a Qwen-32B backbone
+served by Ollama, is almost certainly **DeepSeek-R1-Distill-Qwen-32B** - a Qwen-32B backbone
 carrying DeepSeek-R1 reasoning behaviour. If your generation model is also Qwen-derived, then
 generator and judge share a backbone family and the independence you thought you had is partly
 illusory, whatever the model names suggest. **Verify the backbone of both before relying on this
@@ -212,7 +211,7 @@ property.**
 **Full independence may not be affordable, and that is a legitimate trade.** In the reference
 configuration the generator and judge share a backbone family, and this was accepted knowingly:
 the models that would have given true independence did not fit the single-GPU budget alongside
-everything else the pipeline loads. Record the compromise rather than assume it away -- a
+everything else the pipeline loads. Record the compromise rather than assume it away - a
 partially independent judge is still worth more than none, provided the calibration below is done
 and the residual family bias is stated when the numbers are reported.
 
@@ -223,30 +222,30 @@ labels.
 
 The reference implementation qualified its judge using **VeriFact** [20] (MIT licensed), run as a
 separate self-contained subproject that is not shipped here. You do not need to build a labelled
-set from scratch to do the same thing -- VeriFact-BHC is an existing clinician-labelled benchmark
+set from scratch to do the same thing - VeriFact-BHC is an existing clinician-labelled benchmark
 of propositions from MIMIC-III brief hospital courses, each rated Supported / Not Supported /
 Not Addressed against the patient's EHR.
 
-**Route A -- qualify the judge on VeriFact-BHC (cheap, what the reference did).**
+**Route A - qualify the judge on VeriFact-BHC (cheap, what the reference did).**
 
 1. Obtain VeriFact-BHC from PhysioNet under the usual credentialing, and clone the upstream repo
    [20].
-2. Reproduce the pipeline shape -- decompose -> retrieve -> judge -> score -- against **your own**
+2. Reproduce the pipeline shape - decompose -> retrieve -> judge -> score - against **your own**
    serving stack. The upstream repo assumes a multi-GPU Docker deployment (vLLM, qdrant, redis/rq,
    containerised embedding and rerank services). If you run something simpler, reimplement the
    shape rather than the infrastructure: hybrid dense+sparse retrieval over sentence-level EHR
    facts, a reranker, then your judge. Keep VeriFact's judge prompt, verdict schema and verdict
    labels byte-for-byte; only the transport should differ.
-3. Use their best published hyperparameters as your defaults -- `retrieval_method=rerank`,
+3. Use their best published hyperparameters as your defaults - `retrieval_method=rerank`,
    `top_n=100`, `reference_format=absolute_time`, admission-scoped reference, sentence-level EHR
-   facts -- so your numbers sit on the same axis as theirs.
+   facts - so your numbers sit on the same axis as theirs.
 4. Score with **Gwet's AC1 and multiclass MCC**, not percent agreement, and report per-label
    sensitivity / specificity / PPV / NPV. Their own published metric emphasis is the same. Gate on
    AC1; the reference used a provisional threshold of 0.6.
 5. Treat any comparison to VeriFact's published agreement figure as a direction-and-magnitude
    sanity check, not a reproduction, unless you are running their exact judge model.
 
-**Route B -- build your own labelled set on your own notes.** More expensive but the only thing
+**Route B - build your own labelled set on your own notes.** More expensive but the only thing
 that establishes site-specific validity. Worth doing once Route A shows the judge is in the right
 region.
 
@@ -258,9 +257,9 @@ region.
 | Percent agreement | 0.689 | 0.781 |
 | Gwet's AC1 | 0.595 (gate FAIL) | **0.720** [0.631-0.798] |
 | Multiclass MCC | 0.372 | **0.514** |
-| Not Supported -- PPV | 0.18 | **0.24** |
-| Not Supported -- recall | 0.60 | **0.40** |
-| Not Addressed -- recall | 0.296 | 0.667 |
+| Not Supported - PPV | 0.18 | **0.24** |
+| Not Supported - recall | 0.60 | **0.40** |
+| Not Addressed - recall | 0.296 | 0.667 |
 
 Three things to take from that table rather than from the headline AC1.
 
@@ -268,16 +267,16 @@ Three things to take from that table rather than from the headline AC1.
   not a regression: it is the cost of Not-Addressed recall rising from 0.296 to 0.667. The
   clarification taught the judge to use Not Addressed properly, which moved borderline cases out
   of Not Supported. Of the 15 gold Not-Supported propositions the adopted prompt missed 9, but 6
-  of those went to Not Addressed and only 3 to Supported -- so it failed to endorse 12 of 15, and
+  of those went to Not Addressed and only 3 to Supported - so it failed to endorse 12 of 15, and
   waved through 3. On the PPV side, 19 of the 25 predicted Not Supported were errors, of which 12
   were genuinely Supported and 7 were Not Addressed. The over-flagging is real; the exact-label
   recall overstates the under-detection. **The Not-Supported / Not-Addressed boundary is the hard
-  part of this task, and it is a labelling-scheme distinction more than a safety one** -- decide
+  part of this task, and it is a labelling-scheme distinction more than a safety one** - decide
   which of the two your downstream stage actually acts on before you tune for either.
 - **Prompt wording moved the judge more than any model change would have.** The verbatim prompt
   failed the AC1 gate outright; appending one paragraph clarifying the Not-Addressed versus
   Not-Supported distinction took AC1 from 0.595 to 0.720 and Not-Addressed recall from 0.296 to
-  0.667. A third variant scored worse (AC1 0.699, MCC 0.489) and was rejected -- so tune the
+  0.667. A third variant scored worse (AC1 0.699, MCC 0.489) and was rejected - so tune the
   prompt, measure every variant, and keep the losers on record.
 - **Not-Supported support was 15 of 183.** The PPV figure rests on 25 predicted positives, of
   which 6 were correct. Small-n; widen the labelled set before treating 0.24 as precise.
@@ -294,16 +293,16 @@ deterministic judge-health audit. Budget for that machinery, or choose a judge t
 it.
 
 **The judge sees `bhc_text`.** A hosted judge falls under exactly the same governance as a hosted
-generator -- see section 5.
+generator - see section 5.
 
 ---
 
-## 4. The judge in the f-series -- and why it cannot check c3
+## 4. The judge in the f-series - and why it cannot check c3
 
 | | |
 |---|---|
 | Decides | Tier-1 evaluation numbers (f4 faithfulness, f5 PDSQI-10, f6 incoming reference, f9 merge faithfulness, `eval_fact_presence`) |
-| Build path | no -- nothing served changes |
+| Build path | no - nothing served changes |
 | Failure | a wrong evaluation number, visible and recoverable |
 | Governing metric | same as section 3 |
 
@@ -320,7 +319,7 @@ different judge than c3 without adding a role. Two options:
   signal.
 - If you want a genuinely independent evaluation judge, add a second role to `MODELS` and bind
   f4/f5/f6/f9 to it. That is a code change, not a config change, and it doubles judge VRAM
-  pressure -- see section 7.
+  pressure - see section 7.
 
 ---
 
@@ -346,7 +345,7 @@ hospital data, not to the reference build.
 
 **If you benchmark against MIMIC while running production on your own notes, the two corpora fall
 under different deployment rules in the same project.** Keep the configurations separate and
-record which model touched which corpus -- `AuditRecord` already stamps `model_version`.
+record which model touched which corpus - `AuditRecord` already stamps `model_version`.
 
 **Reproducibility cost.** Hosted endpoints are versioned by the vendor and change under you; the
 reliability literature documents unannounced service degradations posing tangible risks to
@@ -390,8 +389,8 @@ not find a stable wrong answer, and the errors observed here are stable.
 test-retest reliability often coexists with severe systematic bias, so a model that answers
 identically every time can be identically wrong [13]. Reliability is not validity.
 
-**Measure instead:** paraphrase groups -- one clinical concept, several real phrasings drawn from
-different notes -- scored for label agreement within the group. No human labels needed, because
+**Measure instead:** paraphrase groups - one clinical concept, several real phrasings drawn from
+different notes - scored for label agreement within the group. No human labels needed, because
 the grouping is the label. Report it per class; see the separability caveat below.
 
 ### A limit no model choice will move
@@ -434,13 +433,13 @@ signal at best for a clinical corpus [19]. Test candidates on a held-out slice o
 before committing.
 
 **The task here is document-to-document, not query-to-passage.** `/search/similar` compares one
-admission narrative against others -- symmetric, closer to clustering than to retrieval. MTEB
+admission narrative against others - symmetric, closer to clustering than to retrieval. MTEB
 retrieval nDCG is an asymmetric short-query benchmark and transfers weakly.
 
 **The domain-specific premium is small, measured on this data.** An internal comparison embedded
 10,724 extracted facts with two biomedical models and one general-purpose control and measured how
 well nearest neighbours agreed on the taxonomy class: mean k=10 purity **0.683 / 0.693 / 0.691** --
-indistinguishable -- with anomaly rankings correlating at Spearman 0.82-0.85. Benchmark a
+indistinguishable - with anomaly rankings correlating at Spearman 0.82-0.85. Benchmark a
 general-purpose model before assuming a biomedical one is required.
 
 ### Cautions when swapping an existing embedding model
@@ -459,7 +458,7 @@ general-purpose model before assuming a biomedical one is required.
 3. **Similarity thresholds do not transfer.** Any cutoff tuned on one model must be re-tuned.
 4. **Mind query/document asymmetry.** The reference model expects a prefix on the QUERY side.
    Current usage is document-to-document, so no prefix is correct. If you add free-text search --
-   a clinician typing a phrase -- the query side must get the prefix or retrieval degrades
+   a clinician typing a phrase - the query side must get the prefix or retrieval degrades
    silently, with no error.
 5. **Keep normalisation and the distance operator consistent.** The reference embeds with
    `normalize_embeddings=True` and indexes with `vector_cosine_ops`. Changing one without the
@@ -476,7 +475,7 @@ These are not footnotes; they decide what is choosable.
 
 - **One large model resident at a time.** `config.py` states the VRAM budget explicitly and
   requires runners to unload and clear the GPU between roles. A larger judge or generator is not
-  only a VRAM cost -- it changes what can be co-resident.
+  only a VRAM cost - it changes what can be co-resident.
 - **Stage order is arranged to minimise model swaps.** The generation model stays resident across
   b4 -> c1 -> d1 (with a CPU-only c2 in between); the judge enters at c3. Binding a *different*
   model to one of those roles inserts a swap and costs wall-clock time on every run. This is the
@@ -492,22 +491,22 @@ These are not footnotes; they decide what is choosable.
 
 | Decision | Recommendation | Confidence |
 |---|---|---|
-| Model binding | Bind per role; change one role at a time. Weigh against added swap cost (section 8) | High -- architecture already supports it |
-| Generator architecture | Dense over MoE at matched *active* parameters | Moderate -- literature is directional, not task-specific [1][2] |
+| Model binding | Bind per role; change one role at a time. Weigh against added swap cost (section 8) | High - architecture already supports it |
+| Generator architecture | Dense over MoE at matched *active* parameters | Moderate - literature is directional, not task-specific [1][2] |
 | Generator size | Largest you can serve; evaluate against a hosted frontier model to establish the ceiling | Moderate |
-| Quantization | No advice. Validate on your own data | Low -- evidence contradictory [8][9][10] |
+| Quantization | No advice. Validate on your own data | Low - evidence contradictory [8][9][10] |
 | Medical-specialised model | Test, do not assume. Same for biomedical embeddings | Moderate [14] + own measurement |
-| Schema field order | Do not spend effort; measured to have no effect here | Moderate -- one admission, key order uninspected |
+| Schema field order | Do not spend effort; measured to have no effect here | Moderate - one admission, key order uninspected |
 | Prompt work vs model upgrade | Prompt work first | Moderate [7] |
 | Judge at c3 | Build a clinician-labelled calibration set before trusting c4's automatic corrections | High |
 | Judge lineage | Keep generator and judge in different families; check the BACKBONE not the model name, and re-check when the GENERATOR changes | High [16][17] |
 | Judge calibration | Qualify on VeriFact-BHC first (section 3); build your own labelled set second | High [20] |
-| Judge prompt | Tune and measure it before changing model -- prompt wording moved AC1 from 0.595 to 0.720 here | High -- own measurement |
-| f4 as a check on c3 | Do not treat it as independent -- same bound role | High |
+| Judge prompt | Tune and measure it before changing model - prompt wording moved AC1 from 0.595 to 0.720 here | High - own measurement |
+| f4 as a check on c3 | Do not treat it as independent - same bound role | High |
 | Selecting for determinism | Do not. Measure paraphrase-group agreement instead | High [6][13] |
 | Self-consistency voting | Low expected value against stable errors | Moderate [6] |
 | Embedding model | Efficiency-first is correct; shortlist on MTEB, decide on your own held-out pairs | Moderate [18][19] + own measurement |
-| Embedding swap | Stamp the model per vector or re-embed everything; never mix spaces | High -- schema does not protect you |
+| Embedding swap | Stamp the model per vector or re-embed everything; never mix spaces | High - schema does not protect you |
 | Hosted anything | Governance decides. Verify retention, training and human-review settings independently; pin the version | High [11][12] |
 
 ---
@@ -520,7 +519,7 @@ choice.
 **The judge is a triage signal, not a finding.** Not-Supported PPV of roughly 0.24 means fully
 automated gating on judge output is inappropriate; human-reviewed triage is the supported use.
 This is consistent with the general finding that raw agreement overstates chance-corrected
-discrimination [13]. Note that c4 *does* act on judge output automatically -- see section 3.
+discrimination [13]. Note that c4 *does* act on judge output automatically - see section 3.
 
 **Clinical deployment is a regulatory question, not an accuracy threshold.** Rigorous validation,
 documentation of intended use, and adherence to applicable regulatory requirements are necessary
