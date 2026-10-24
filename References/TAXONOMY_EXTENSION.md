@@ -26,7 +26,7 @@ Three derived functions turn those axes into behaviour:
 
 - **`is_ledger_member(...)`** - the pin decision. Does this fact reach the retention ledger?
 - **`prune_reason(...)`** - if declined, which branch declined it. Recorded in `dropped[]`.
-- **`is_safety_robust(class)`** - v2.12 public accessor over `_SAFETY_ROBUST_CLASSES`, so a
+- **`is_safety_robust(class)`** - public accessor over `_SAFETY_ROBUST_CLASSES`, so a
   consumer (b2's `amended` route) can test the safety exemption without reaching for the
   private tuple.
 
@@ -122,12 +122,12 @@ Shapes A-G differ in blast radius, not in governance. Every one of them is a cli
 all three steps below run for all of them. Only the specifics differ.
 
 **Evidence, before proposing.** Quantify the change on your largest cohort first (in this repo,
-`test`) -- read-only, no pipeline stage runs. A change is not proposable on a single case. Load
+`test`) - read-only, no pipeline stage runs. A change is not proposable on a single case. Load
 `interim/retention_facts.jsonl`, run `tax.normalize_fact()` on every fact FIRST (the stored class is
 not the routed class, and cohort stamps are mixed-version, §9), then count what the change would move
 and what it would move that you did not intend. Write the number down: it is the prediction the
 verification step tests. For shapes B, C, D and E the count is only obtainable by simulating the
-new rule over stored facts, since the real answer needs a re-extraction you have not run yet -- do
+new rule over stored facts, since the real answer needs a re-extraction you have not run yet - do
 the simulation anyway, because discovering you were wrong after a 1-2 day b1 run is the expensive
 way to find out.
 
@@ -137,13 +137,13 @@ and does not justify a rule. Record the answer per fact family, not in aggregate
 
 **Decision record, before code.** Open a `[DECIDE]` row in `clinical_tuning_points.md` carrying that
 evidence. No code lands before clinical sign-off, and the sign-off names the specific behaviour
-being changed -- for a class change, its neighbours and its counter-examples; for a re-tier, the old
+being changed - for a class change, its neighbours and its counter-examples; for a re-tier, the old
 and new tier; for a net, its source class, target class **and target tier**. This is the gate on
 starting the work, not a box ticked during the version bump (§6).
 
 **Predict, then verify.** The change must move the count you predicted in step one. §8 lists the
 mechanics; the discipline is that "unexplained jump" only means something if you had a prediction to
-compare against. **A larger move than predicted means the rule is leaking -- revert it, do not tune
+compare against. **A larger move than predicted means the rule is leaking - revert it, do not tune
 it in place.** Tuning a leaking rule against the cohort until the number looks right is how a
 taxonomy acquires rules nobody can later justify.
 
@@ -216,7 +216,7 @@ only**, count hits in every other class as the leakage estimate if scope is ever
 read every hit for negation ("without radiographic evidence of ...") and for
 mention-without-event ("inadequate BiPAP settings" is not an ICU escalation).
 
-#### G1. Landing -- BOTH halves are required, and they are not alternatives
+#### G1. Landing - BOTH halves are required, and they are not alternatives
 
 b1 does not run the nets. `_normalise_fact` (`b1_retention_extractor.py:382-399`) applies only the
 surveillance promotion and `floor_tier`; the reclassification happens solely in
@@ -228,14 +228,14 @@ surveillance promotion and `floor_tier`; the reclassification happens solely in
 | **(b) at-source rule** | `EXTRACTION_RULES` + the source class's `counter_examples` (both render into `render_for_prompt()`) | taxonomy minor + `prompt_version("retention_extractor")` | changes what b1 EMITS and how it words it | **full b1 re-extraction** |
 
 Why (a) alone is insufficient: the net is a regex over `text`, so it cannot fire on a fact b1 never
-emitted as its own fact (only `EXTRACTION_RULES` governs emission -- cf. "SURFACE THE SUBSTRATE",
+emitted as its own fact (only `EXTRACTION_RULES` governs emission - cf. "SURFACE THE SUBSTRATE",
 "ACUTE-ON-CHRONIC: emit TWO facts"), cannot supply a missing `parent_condition`
 (`is_disease_course_event` reads it), and cannot see a trigger token the model never wrote.
 
 Why (b) alone is insufficient: it leaves the entire existing corpus mis-routed until b1 re-runs.
 
 **So: land (a) now, stage (b).** Do not trigger a b1 run for (b) alone unless the extraction MISS,
-not merely the mis-label, is the defect. Say so in the CHANGELOG entry -- v2.12 is the worked
+not merely the mis-label, is the defect. Say so in the CHANGELOG entry - v2.12 is the worked
 example: *"The prompt tightening is STAGED and unexercised on the current cohort; the gate reorder
 is what protects the existing data."*
 
@@ -247,10 +247,10 @@ branch a per-predicate tier BEFORE adding the rule.
 
 Every approved rule adds its exemplars to the `_NET_GOLDEN_CASES` table in `retention_taxonomy.py`
 -- MUST-catch and MUST-NOT-catch phrases, verbatim from the cohort, including the negation and
-near-miss cases found at the §4.0 evidence step -- and `python src/retention_taxonomy.py --selfcheck` is run before and
+near-miss cases found at the §4.0 evidence step - and `python src/retention_taxonomy.py --selfcheck` is run before and
 after any net edit. This is what stops a later recall widening from silently breaking an earlier
 approved rule. A live example of why: `_SENTINEL_EPISODE_RE`'s 30-char window misses "thrombosis
-around upper extremity hemodialysis lines and AV fistula" -- an in-scope v2.8 case, uncaught, with
+around upper extremity hemodialysis lines and AV fistula" - an in-scope v2.8 case, uncaught, with
 nothing in the pipeline able to detect it.
 
 The §4.0 verification for a net is concrete: diff the `(promoted, reclassified)` counts
@@ -277,13 +277,13 @@ change of shape C, D, or E. **The first group fails silently** - it mis-scores r
 | `evaluation/f6_incoming_ref.py:483-484` | tier whitelist, unknown -> T3 | New tier silently coerced to T3 |
 | `evaluation/f11_metric_validation.py:171-175, 330` | tier and class names in mutation tests | Validation harness breaks or tests the wrong thing |
 | `api/tiered_review.html:704, 728` | CSS classes for T1/T2/T3, else `other` | New tier renders unstyled. Cosmetic |
-| `studies/generalization/export_review_html.py:133-134, 384, 411` | SQL `CASE` tier ordering + CSS | Study tool, not part of the pipeline -- only relevant if you run the generalization study. New tier sorts last. Cosmetic |
-| `b2_build_ledger.py:576` | `tax.is_safety_robust()` exemption from the `amended` route | A new safety class is routed to `amended`, which `d3` does not load and `c2` counts as REPRESENTED -- the FM-8 signature: no `dropped[]` entry, no flag, silent loss |
-| `evaluation/f12_frontier.py:383` | baseline staleness keyed on `taxonomy_version` | **Correct behaviour you must act on, once you have a baseline.** The gate compares against `data/output/eval/ablations/frontier_baseline.json`, which is gitignored -- a fresh clone has none, so the dominance gate is inert until you establish one. Where a baseline does exist, any version bump marks it stale and SKIPS the gate until you regenerate it |
+| `studies/generalization/export_review_html.py:133-134, 384, 411` | SQL `CASE` tier ordering + CSS | Study tool, not part of the pipeline - only relevant if you run the generalization study. New tier sorts last. Cosmetic |
+| `b2_build_ledger.py:576` | `tax.is_safety_robust()` exemption from the `amended` route | A new safety class is routed to `amended`, which `d3` does not load and `c2` counts as REPRESENTED - the FM-8 signature: no `dropped[]` entry, no flag, silent loss |
+| `evaluation/f12_frontier.py:383` | baseline staleness keyed on `taxonomy_version` | **Correct behaviour you must act on, once you have a baseline.** The gate compares against `data/output/eval/ablations/frontier_baseline.json`, which is gitignored - a fresh clone has none, so the dominance gate is inert until you establish one. Where a baseline does exist, any version bump marks it stale and SKIPS the gate until you regenerate it |
 | `clinical_review_tools/b1_b4/dump_clusters.py:108` | `recurrent_episode` filter | Dev tool only |
-| `fhir_interop.py` | `VERIFICATION_STATUS` / `CLINICAL_STATUS` crosswalks keyed on `CERTAINTY` / `LIFECYCLE` | **Fails LOUDLY, not silently** -- `_assert_total_coverage()` raises at import on any added or removed certainty/lifecycle value. Only shape F below touches it |
+| `fhir_interop.py` | `VERIFICATION_STATUS` / `CLINICAL_STATUS` crosswalks keyed on `CERTAINTY` / `LIFECYCLE` | **Fails LOUDLY, not silently** - `_assert_total_coverage()` raises at import on any added or removed certainty/lifecycle value. Only shape F below touches it |
 
-**Shape F -- add or remove a `certainty` / `lifecycle` value.** Not in the section 3 table
+**Shape F - add or remove a `certainty` / `lifecycle` value.** Not in the section 3 table
 because it is the most expensive shape available and is almost never the right change.
 `render_for_prompt()` builds b1's extraction vocabulary directly from the `CERTAINTY` and
 `LIFECYCLE` tuples, so touching them changes the prompt and forces full re-extraction --
@@ -291,7 +291,7 @@ invalidating `retention_facts.jsonl` and everything downstream, including publis
 Section 7's re-tier-without-re-extraction trick does NOT apply. Note the DB columns are plain
 `TEXT` with no CHECK constraints and `contracts.py` types them as `str`, so nothing will
 stop you; the damage surfaces only as mixed-vocabulary artifacts. If the goal is interoperability
-rather than semantics, add a crosswalk in `fhir_interop.py` instead -- additive, no version bump,
+rather than semantics, add a crosswalk in `fhir_interop.py` instead - additive, no version bump,
 no re-run.
 
 **Verification grep.** After any change, search `src/` for the old class id and every tier literal:
@@ -316,12 +316,12 @@ bumping it.
    11,930 facts; 6 amended nodes, 4 of them T1 allergies absent from the served ledger), states
    that no re-extraction is required, and explicitly separates the gate reorder (which protects
    existing data) from the STAGED prompt tightening (which does not fire until the next b1 run).
-   That separation is the pattern -- see shape G in §3 / §4.
+   That separation is the pattern - see shape G in §3 / §4.
 3. Add a matching entry in `References/CHANGELOG.md`.
 4. Update `clinical_salience_taxonomy.md` if the conceptual model moved, and
    `clinical_tuning_points.md` if the change resolves or opens a decision point.
 
-Clinical sign-off happens **before** any of this, at §4.0 -- the bump records a decision already
+Clinical sign-off happens **before** any of this, at §4.0 - the bump records a decision already
 taken, it is not where the decision gets made. Taxonomy changes are clinical governance, not
 configuration.
 
@@ -404,7 +404,7 @@ Then verify:
    baseline's `taxonomy_version` against the running one and skips the dominance gate when they
    differ, so a bump leaves f12 unable to gate until it is re-baselined. The baseline lives under
    `data/` and is not committed, so on a fresh clone there is nothing to regenerate and nothing
-   to gate -- establish a baseline first if you want the gate.
+   to gate - establish a baseline first if you want the gate.
 
 ---
 
@@ -414,7 +414,7 @@ Then verify:
 - **`normalize_fact` reclassifies at read time.** A stored `retention_class` is not necessarily the
   one that routed. Run `normalize_fact` first when reasoning about any specific fact.
 - **`_SAFETY_ROBUST_CLASSES` bypasses tier, certainty, and lifecycle entirely.** Adding a class here
-  makes it pin unconditionally except when `ruled_out` -- v2.12 (FM-8) moved the safety branch
+  makes it pin unconditionally except when `ruled_out` - v2.12 (FM-8) moved the safety branch
   ABOVE the `superseded` guard, so `lifecycle=superseded` no longer un-pins these. That is a
   deliberate safety choice with a false-positive cost; `infection_control_status` is excluded
   precisely because it spans temporary and permanent states. Adding a class here now has a SECOND
@@ -434,12 +434,12 @@ Then verify:
   before/after diff, and say which cohort the numbers came from whenever you report one.
 - **Cohort artifacts go mixed-version the moment you bump without re-extracting.** A version bump
   that requires no re-extraction is cheap precisely because it leaves `retention_facts.jsonl`
-  alone -- so `audit.taxonomy_version` then varies across admissions within a single cohort, and
+  alone - so `audit.taxonomy_version` then varies across admissions within a single cohort, and
   across cohorts. This is normal, not corruption. Two consequences: read
   `audit.taxonomy_version` per record rather than assuming a cohort has one, and take any
   before/after distribution diff from re-derived values, never from the stored field.
 - **A net and its extraction rule are not alternatives.** b1 runs neither
-  `is_disease_course_event` nor `is_sentinel_episode` -- `_normalise_fact` applies only the
+  `is_disease_course_event` nor `is_sentinel_episode` - `_normalise_fact` applies only the
   surveillance promotion and `floor_tier`. The net repairs stored data; the `EXTRACTION_RULES`
   change prevents recurrence. Landing one half leaves either the existing corpus or every future
   run wrong. §4G.
