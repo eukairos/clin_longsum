@@ -16,7 +16,7 @@ The diagrams use the ELK renderer; if yours lacks it, drop `"defaultRenderer": "
 > **Never open a pipeline CSV in Excel** (the source CSV, `cohort_admissions.csv`,
 > `cohort_holdout.csv`, or any other `data*/interim`/`output` CSV). Excel silently
 > reformats dates on open/save (locale-dependent D/M vs M/D, seconds dropped) and
-> truncates any cell over 32,767 characters -- for this pipeline that's `bhc_text`
+> truncates any cell over 32,767 characters - for this pipeline that's `bhc_text`
 > / `bhc_delta`. A resave can corrupt data upstream of every fact, ledger, and
 > metric with no error raised. Copy the file first and open the copy if you need
 > to inspect it; never resave a working pipeline CSV from Excel.
@@ -176,11 +176,11 @@ flowchart TD
     subgraph R["R · Physician review"]
         api["longsum_api.py<br/>/tiered/review (FastAPI)"]:::py
         submit[["POST …/submit<br/>approved_summary_md · summary_version"]]:::py
-        api -- "Approve" --> submit
+        api - "Approve" --> submit
     end
     TIER --> api
 
-    foldin["foldin_patient.py --subject S --hadm H<br/>pg_advisory_lock 7704140419"]:::ctl
+    foldin["foldin_patient.py --subject S --hadm H<br/>pg_advisory_lock "]:::ctl
     submit -. "BackgroundTask" .-> foldin
 
     subgraph CH["fold-in cascade (per subject, in order)"]
@@ -198,13 +198,13 @@ flowchart TD
     end
     foldin --> k1
 
-    k2 -- "[DB W]" --> promtbl[("promotions<br/>(source of truth)")]:::db
+    k2 - "[DB W]" --> promtbl[("promotions<br/>(source of truth)")]:::db
     promtbl -. "projects cache" .-> prom(["promoted_admissions.csv"]):::f
     prom -.-> holdpy{{"holdout.py<br/>is_holdout − promoted"}}:::ctl
     holdpy -. "ᴴ span gating" .-> k3
     holdpy -. "ᴴ" .-> k7
-    k7 -- "folded_in_at = NOW() (same txn)" --> TIER
-    k8 -- "[DB W]" --> EMB[("admissions.embedding")]:::db
+    k7 - "folded_in_at = NOW() (same txn)" --> TIER
+    k8 - "[DB W]" --> EMB[("admissions.embedding")]:::db
 
     style CH fill:#fafafa,stroke:#cccccc,color:#111
     style R fill:#fceaea,stroke:#cc5f5f,color:#111
@@ -225,15 +225,15 @@ flowchart TD
 | Stage | Inputs | Outputs |
 |---|---|---|
 | `a1_profile_cohort.py` | BHC source | `a1_cohort_profile.json` |
-| `a2_build_cohort.py` | BHC source | `cohort_admissions.csv` (is_holdout, bhc_text, **bhc_delta**, dedup_jaccard_to_prev), `cohort_holdout.csv`, `cohort_patients.csv`. Owns the NB_LONG_01 §5–6 sentence-level cross-admission dedup. |
+| `a2_build_cohort.py` | BHC source | `cohort_admissions.csv` (is_holdout, bhc_text, **bhc_delta**, dedup_jaccard_to_prev), `cohort_holdout.csv`, `cohort_patients.csv`. Owns the sentence-level cross-admission dedup. |
 | `a4_load_and_embed.py` | `cohort_admissions.csv` | rows into `admissions` (and base load) |
 | `b1_retention_extractor.py` (LLM) | `admissions` BHC, `cohort_admissions.csv`, `retention_taxonomy.py` | `retention_facts.jsonl` (+ `b1_rerun_hadms.py` for per-hadm reruns) |
-| `b2_build_ledger.py` | `retention_facts.jsonl`, `cohort_admissions.csv` (holdout-aware), `retention_taxonomy.py` | `retention_ledger.jsonl` (raw): nodes / flagged / episodes / amended / considered_excluded / **dropped**. `dropped[]` = the PRUNE AUDIT TRAIL (tax v2.11): every fact matching no routing branch, with `tax.prune_reason()`. Nodes carry per-attribute `provenance` (attribute -> fact_id). Both audit-only. IDENTITY GUARD (2026-08-01): `_split_cluster` / `_split_group` prevent a compound fact from letting one condition speak for another (FM-7); `code_status_directive` exempt |
+| `b2_build_ledger.py` | `retention_facts.jsonl`, `cohort_admissions.csv` (holdout-aware), `retention_taxonomy.py` | `retention_ledger.jsonl` (raw): nodes / flagged / episodes / amended / considered_excluded / **dropped**. `dropped[]` = the PRUNE AUDIT TRAIL: every fact matching no routing branch, with `tax.prune_reason()`. Nodes carry per-attribute `provenance` (attribute -> fact_id). Both audit-only. IDENTITY GUARD: `_split_cluster` / `_split_group` prevent a compound fact from letting one condition speak for another; `code_status_directive` exempt |
 | `b3_loss_audit.py` | `retention_facts.jsonl`, ledger (raw), holdout | `loss_audit.md` (REDUNDANT/REVIEW labels) |
 | `b4_consolidate_ledger.py` (LLM) | `retention_ledger.jsonl` (raw), `clinical_salience_taxonomy.md`, `ledger_consolidate.py` | `retention_ledger.jsonl` (consolidated), `retention_ledger.raw.jsonl` (backup) |
-| `c1_compactor.py` (LLM) | `retention_ledger.jsonl`, `cohort_admissions.csv`, `retention_facts.jsonl` | `compaction_results.jsonl` -- ledger is SPAN-SCOPED per fold (`_ledger_for_span`) and rendered with `[adm N]` anchors. The output field is **`ledger_facts`** (renamed from `retention_ledger`, which collided with the b2 ledger's differently-shaped `nodes[]`) and now persists the SPAN-SCOPED set the model saw, not the patient's whole ledger; `audit.scores` carries `ledger_scope_max_seq` / `n_ledger_scoped` / `n_ledger_total` |
-| `c2_retention_validator.py` | `retention_facts.jsonl`, `retention_ledger.raw.jsonl` | `retention_completeness.jsonl` (now carries a TOP-LEVEL `subject_id`; older rows have it only inside `audit`), `retention_review.csv` (validates the lossless raw ledger; recall = 1.0) |
-| `c3_faithfulness.py` (LLM) | `compaction_results.jsonl` | `compaction_faithfulness.jsonl` -- keyed by `subject_id`; there is deliberately NO `hadm_id` field (the vendored validator echoed `str(subject_id)` into one, which made the row look joinable on an admission id). Scope = `covered_hadm_ids` / `generated_hadm_ids` |
+| `c1_compactor.py` (LLM) | `retention_ledger.jsonl`, `cohort_admissions.csv`, `retention_facts.jsonl` | `compaction_results.jsonl` - ledger is SPAN-SCOPED per fold (`_ledger_for_span`) and rendered with `[adm N]` anchors. The output field is **`ledger_facts`** (renamed from `retention_ledger`, which collided with the b2 ledger's differently-shaped `nodes[]`) and now persists the SPAN-SCOPED set the model saw, not the patient's whole ledger; `audit.scores` carries `ledger_scope_max_seq` / `n_ledger_scoped` / `n_ledger_total` |
+| `c2_retention_validator.py` | `retention_facts.jsonl`, `retention_ledger.raw.jsonl` | `retention_completeness.jsonl` (carries a TOP-LEVEL `subject_id`; older rows have it only inside `audit`), `retention_review.csv` (validates the lossless raw ledger; recall = 1.0) |
+| `c3_faithfulness.py` (LLM) | `compaction_results.jsonl` | `compaction_faithfulness.jsonl` - keyed by `subject_id`; there is deliberately NO `hadm_id` field (the vendored validator echoed `str(subject_id)` into one, which made the row look joinable on an admission id). Scope = `covered_hadm_ids` / `generated_hadm_ids` |
 | `c4_correct.py` (LLM) | `compaction_results.jsonl`, `compaction_faithfulness.jsonl` | `compaction_corrected.jsonl`, `compaction_corrections_audit.csv`. Gated on the PRESENCE of `failed_statements`, not c3's `pass` boolean |
 | `c5_review_queue.py` | `compaction_results.jsonl` / faithfulness | `review_queue.jsonl` |
 | `d1_paragrapher.py` (LLM) | `retention_facts.jsonl`, `cohort_admissions.csv` | `episode_paragraphs.jsonl` (one per admission, all admissions) |
@@ -247,8 +247,8 @@ flowchart TD
 
 ## Notes
 
-- **Per-subject scoping**: every fold-in stage (`b2 b4 c1 d1 c2 c3 c4 d2 d_coordinator d3 e2 db_persist_compaction db_persist_retention c5`) accepts `--subject S` and merges that one patient's record in place; d3 upserts/DELETE-INSERTs per subject. `d1` and `c2` **now run on fold-in**: d1 paragraphs the just-promoted admission (so the NEXT discharge finds its hot-window paragraph — the demotion-gap fix), and c2 re-checks pinned-fact retention over the span the fold-in just aged into compaction. For d1/c2, `--subject` is a WRITE mode (merge in place) distinct from `--preview S` (print only, no write).
-- **Holdout sim**: latest admission per patient is the incoming episode; only b2/d2/coordinator/d3 are holdout-aware (compaction targets the oldest span). Approval promotes it -- `holdout.promote()` **writes the `promotions` table (DB = source of truth)** and projects `promoted_admissions.csv` from it as the cache the file-based readers consume -- and folds it into the established record. The whole fold-in cascade holds a **Postgres advisory lock** so concurrent fold-ins (multiple uvicorn workers, or a manual CLI run) cannot corrupt the shared artifacts.
+- **Per-subject scoping**: every fold-in stage (`b2 b4 c1 d1 c2 c3 c4 d2 d_coordinator d3 e2 db_persist_compaction db_persist_retention c5`) accepts `--subject S` and merges that one patient's record in place; d3 upserts/DELETE-INSERTs per subject. `d1` and `c2` **run on fold-in**: d1 paragraphs the just-promoted admission (so the NEXT discharge finds its hot-window paragraph — the demotion-gap fix), and c2 re-checks pinned-fact retention over the span the fold-in just aged into compaction. For d1/c2, `--subject` is a WRITE mode (merge in place) distinct from `--preview S` (print only, no write).
+- **Holdout sim**: latest admission per patient is the incoming episode; only b2/d2/coordinator/d3 are holdout-aware (compaction targets the oldest span). Approval promotes it - `holdout.promote()` **writes the `promotions` table (DB = source of truth)** and projects `promoted_admissions.csv` from it as the cache the file-based readers consume - and folds it into the established record. The whole fold-in cascade holds a **Postgres advisory lock** so concurrent fold-ins (multiple uvicorn workers, or a manual CLI run) cannot corrupt the shared artifacts.
 - **DB touch-points** (every Postgres read/write; all other stages are file-only):
 
 | Stage / call | DB op | Table(s) |
@@ -257,7 +257,7 @@ flowchart TD
 | `b1_retention_extractor` | READ | admissions (BHC source) |
 | `db_persist_source --facts` | **WRITE** | retention_facts |
 | `db_persist_compaction` | **WRITE** | compaction_review, compaction_change |
-| `db_persist_retention` | **WRITE / verify** | retention_review; post-commit runs `pg.retention_visibility_gaps()` and ABORTS if a subject c2 flagged has no rows (those losses would be invisible -- RETENTION is their only surface) |
+| `db_persist_retention` | **WRITE / verify** | retention_review; post-commit runs `pg.retention_visibility_gaps()` and ABORTS if a subject c2 flagged has no rows (those losses would be invisible - RETENTION is their only surface) |
 | `e1_incoming_summary` | READ | admissions (held-out BHC) |
 | `e2_embed_incoming` | **WRITE** | admissions.embedding |
 | `d3_load_tiers` | **WRITE** | tiered_view, tiered_episode, tiered_ledger(_raw), retention_dropped, folded_in_at |
@@ -276,9 +276,9 @@ flowchart TD
 | b2/b3/b4/c1/c2/c3/c4/d1/d2/d_coordinator | none | file-only |
 | f1-f12 (eval) | none | read artifact files only (f11 perturbs sandboxed copies; f12 `--sweep` re-runs c1, still no DB) |
 
-- **Run namespace + data root**: `config.py` reads two opt-in envs. `LONGSUM_NAMESPACE` moves ALL FILE artifacts under `data_<ns>/` (unset = `data/`, byte-identical). `LONGSUM_DATA_ROOT` moves the data tree OUT of the repo entirely (unset = `PROJECT_ROOT`, old behaviour); `SUBPROJECT_DIR` / `SOURCE_CSV` / `DATA_DIR` all derive from it, which is how the repo stays data-free while the pipeline runs in place. NEITHER namespaces Postgres -- the DB is chosen by `PGDATABASE`, and `database/pg.py` refuses the protected dev DB outright (see **DB** above). Recipes: `src/studies/generalization/README.md` (unseen cohort, file-only) and the `longitudinal_bhc_test` regression cohort. The DB-backed **production replay** (`src/studies/generalization/replay_production.py`, k>=2 holdout) runs the fold-in cascade against a SEPARATE `longitudinal_bhc_gen` DB.
-- **DB**: Postgres, database selected by **`PGDATABASE`** (shell beats `.env`; `database/pg.py` REFUSES any db in `LONGSUM_PROTECTED_DBS`, default `longitudinal_bhc`, unless `LONGSUM_ALLOW_PROTECTED_DB=1`, and prints `[pg] database: <db>` once per process). Dev = `longitudinal_bhc`, generalisation = `longitudinal_bhc_gen`, regression test = `longitudinal_bhc_test`. `patients`/`admissions` shared; tiered tables `tiered_view`/`tiered_episode`/`tiered_ledger`; b2 prune audit `retention_dropped`; source-of-truth `retention_facts`/`generation_audit`; faithfulness provenance `compaction_review`/`compaction_change`; retention re-review flags `retention_review`; fold-in log `promotions`; C5 triage `review_queue` + append-only `review_decisions`. DDL: a single `src/database/schema.sql` (idempotent), applied manually in PgAdmin **after a4** (it FKs `tiered_view` to `patients`). FRESH-CREATION form -- every column lives in its `CREATE TABLE`, so a clean build is complete in one pass; to upgrade an EXISTING db, apply the missing columns as a one-off `ADD COLUMN IF NOT EXISTS` migration.
-- **Service**: FastAPI `src/api/longsum_api.py`; UI `src/api/tiered_review.html` (`/tiered/review`). Run from `src/api/`: `uvicorn longsum_api:app --host 127.0.0.1 --port 8000` (no `--reload`). Launch from a shell with `PGDATABASE` set -- the app connects via `database.pg`, so an unset value falls through to `.env` and is REFUSED by the protected-DB guard. Three left-hand tabs: DISCHARGES (approve summaries), RETENTION (c2 fact-level losses), TRIAGE (c5 pipeline-flagged concerns). Physician name is a single header field shared by all three. 
+- **Run namespace + data root**: `config.py` reads two opt-in envs. `LONGSUM_NAMESPACE` moves ALL FILE artifacts under `data_<ns>/` (unset = `data/`, byte-identical). `LONGSUM_DATA_ROOT` moves the data tree OUT of the repo entirely (unset = `PROJECT_ROOT`, old behaviour); `SUBPROJECT_DIR` / `SOURCE_CSV` / `DATA_DIR` all derive from it, which is how the repo stays data-free while the pipeline runs in place. NEITHER namespaces Postgres - the DB is chosen by `PGDATABASE`, and `database/pg.py` refuses the protected dev DB outright (see **DB** above). Recipes: `src/studies/generalization/README.md` (unseen cohort, file-only) and the `longitudinal_bhc_test` regression cohort. The DB-backed **production replay** (`src/studies/generalization/replay_production.py`, k>=2 holdout) runs the fold-in cascade against a SEPARATE `longitudinal_bhc_gen` DB.
+- **DB**: Postgres, database selected by **`PGDATABASE`** (shell beats `.env`; `database/pg.py` REFUSES any db in `LONGSUM_PROTECTED_DBS`, default `longitudinal_bhc`, unless `LONGSUM_ALLOW_PROTECTED_DB=1`, and prints `[pg] database: <db>` once per process). Dev = `longitudinal_bhc`, generalisation = `longitudinal_bhc_gen`, regression test = `longitudinal_bhc_test`. `patients`/`admissions` shared; tiered tables `tiered_view`/`tiered_episode`/`tiered_ledger`; b2 prune audit `retention_dropped`; source-of-truth `retention_facts`/`generation_audit`; faithfulness provenance `compaction_review`/`compaction_change`; retention re-review flags `retention_review`; fold-in log `promotions`; C5 triage `review_queue` + append-only `review_decisions`. DDL: a single `src/database/schema.sql` (idempotent), applied manually in PgAdmin **after a4** (it FKs `tiered_view` to `patients`). FRESH-CREATION form - every column lives in its `CREATE TABLE`, so a clean build is complete in one pass; to upgrade an EXISTING db, apply the missing columns as a one-off `ADD COLUMN IF NOT EXISTS` migration.
+- **Service**: FastAPI `src/api/longsum_api.py`; UI `src/api/tiered_review.html` (`/tiered/review`). Run from `src/api/`: `uvicorn longsum_api:app --host 127.0.0.1 --port 8000` (no `--reload`). Launch from a shell with `PGDATABASE` set - the app connects via `database.pg`, so an unset value falls through to `.env` and is REFUSED by the protected-DB guard. Three left-hand tabs: DISCHARGES (approve summaries), RETENTION (c2 fact-level losses), TRIAGE (c5 pipeline-flagged concerns). Physician name is a single header field shared by all three. 
 - **Inference**: local Ollama only. Embeddings: `Snowflake/snowflake-arctic-embed-l-v2.0`.
 
 ## Phase F — evaluation (reads generation artifacts read-only)
@@ -314,7 +314,7 @@ between d_coordinator and d3).
   that external calibration study, not part of clin's shipped eval suite).
 - Clinician-tunable parameters across the whole pipeline: **CLINICAL_TUNING_POINTS.md** (governance).
 
-## Full rebuild -- run order
+## Full rebuild - run order
 
 A complete from-scratch rebuild (dev, holdout ON). `--fresh` overwrites; stages without it
 are append/idempotent or rewrite-in-place. **Data-path vs QA** is noted where it matters:
@@ -329,7 +329,7 @@ A single idempotent `src/database/schema.sql` creates every table. Apply it AFTE
 schema.sql   -- CREATE ... IF NOT EXISTS for tiered_view/episode/ledger/ledger_raw (negative_kind enum;
              --   review + approval columns inline; ledger rows carry per-attribute `provenance` JSONB),
              --   retention_facts + generation_audit (source-of-truth),
-             --   retention_dropped (B2 prune audit trail -- every fact that matched no routing branch,
+             --   retention_dropped (B2 prune audit trail - every fact that matched no routing branch,
              --     with tax.prune_reason(); audit only, never served),
              --   compaction_review + compaction_change (C3 gate + C4 correction provenance),
              --   promotions (fold-in approval log), retention_review (C2 MISSING/PINNED_IN_ROLLUP flags),
@@ -372,7 +372,7 @@ python src/e2_embed_incoming.py                          # [DB WRITE admissions.
 python src/d_coordinator.py --write-md                   # assemble LongitudinalView (picks up c4 corrections)  (no DB)
 python src/database/d3_load_tiers.py                     # [DB WRITE tiered_view/episode/ledger(_raw)] view + ledger + incoming
 python src/database/db_persist_source.py --audit --fresh # [DB WRITE generation_audit] (after every stage has appended)
-python src/c5_review_queue.py --fresh                    # QA: clinician review queue from PERSISTED flags (reads generation_audit; MQTT notify) -- AFTER --audit
+python src/c5_review_queue.py --fresh                    # QA: clinician review queue from PERSISTED flags (reads generation_audit; MQTT notify) - AFTER --audit
 ```
 
 ### F - Evaluation (read-only; reads artifact FILES, no DB reads/writes)
@@ -390,16 +390,16 @@ python src/evaluation/f12_frontier.py                    # Tier-2 release gate: 
 ```
 
 **Ordering constraints**
-- `c3 -> c4` must run **before** `d_coordinator` -- else the served Prior Admissions prose is c1's
+- `c3 -> c4` must run **before** `d_coordinator` - else the served Prior Admissions prose is c1's
   uncorrected (possibly hallucinated) output.
-- `e1` must run **before** `d3` -- else `tiered_view.incoming_*` (the review UI's incoming side) is empty.
-- `db_persist_source --audit` runs after b2..d3 have each appended to `generation_audit.jsonl`; **`c5` then runs after it** -- c5 reads the persisted `generation_audit` **table** (not the jsonl), so it must follow the audit persist (full rebuild) / the db_persist_* steps (fold-in). c5's review_id is a content fingerprint (`role|subject|hadms|scores`), stable across re-folds. The jsonl is a **write-ahead spool with monthly rotation**: `--audit` atomically renames it to `generation_audit.processing.jsonl`, upserts (audit_sha dedup), commits, then appends the lines to `audit_archive/generation_audit-YYYYMM.jsonl` and drops the rotated file -- per-fold-in cost is O(new records), not O(history); a crash leftover `.processing` is replayed next run; `--fresh` replays the archive segments + pending; in incremental mode `--subject` no longer filters audit (the spool is already scoped; leftovers replay free under dedup).
+- `e1` must run **before** `d3` - else `tiered_view.incoming_*` (the review UI's incoming side) is empty.
+- `db_persist_source --audit` runs after b2..d3 have each appended to `generation_audit.jsonl`; **`c5` then runs after it** - c5 reads the persisted `generation_audit` **table** (not the jsonl), so it must follow the audit persist (full rebuild) / the db_persist_* steps (fold-in). c5's review_id is a content fingerprint (`role|subject|hadms|scores`), stable across re-folds. The jsonl is a **write-ahead spool with monthly rotation**: `--audit` atomically renames it to `generation_audit.processing.jsonl`, upserts (audit_sha dedup), commits, then appends the lines to `audit_archive/generation_audit-YYYYMM.jsonl` and drops the rotated file - per-fold-in cost is O(new records), not O(history); a crash leftover `.processing` is replayed next run; `--fresh` replays the archive segments + pending; in incremental mode `--subject` no longer filters audit (the spool is already scoped; leftovers replay free under dedup).
 - `db_persist_compaction` runs **after c3 + c4** (c3 loads first so the parent row exists before C4's
-  child rows). It IS now in the fold-in subset -- `foldin_patient.py` runs `db_persist_compaction
+  child rows). It IS now in the fold-in subset - `foldin_patient.py` runs `db_persist_compaction
   --subject` after c3/c4, so a folded subject's `compaction_review` row is refreshed per fold-in and no
   longer goes stale. In `--subject` mode a prior-fail/now-pass subject also has its stale C4 provenance
   cleared.
-- `f4 / f5 / f9` share the deepseek judge (one GPU) -- run one judge job at a time.
+- `f4 / f5 / f9` share the deepseek judge (one GPU) - run one judge job at a time.
 - `--fresh` exists on b1, db_persist_source, db_persist_compaction, db_persist_retention, d1, c1, c2, c3, c4, c5, d2, e1, f4, f6 (and `--force` / `--hadm` on e2);
   b2/b3/b4/d_coordinator/d3 rewrite-in-place or DELETE-then-INSERT, so no `--fresh`.
 - **Fold-in** (`foldin_patient.py --subject S --hadm H`) runs the WHOLE per-subject cascade
@@ -409,10 +409,10 @@ python src/evaluation/f12_frontier.py                    # Tier-2 release gate: 
   the CSV] -> b2 -> b4 -> c1 -> d1 -> c2 -> c3 -> c4 -> d2 -> d_coordinator -> d3 [DB W: tiered_*,
   folded_in_at] -> e2 --hadm [DB W: admissions.embedding] -> db_persist_compaction --subject [DB W] ->
   db_persist_retention --subject [DB W: retention_review] -> db_persist_source --audit [DB W] ->
-  c5 --subject (best-effort MQTT notify)`. promote() is the authoritative promotion writer -- there is
+  c5 --subject (best-effort MQTT notify)`. promote() is the authoritative promotion writer - there is
   NO separate db_persist_promotions step. Fold-in **DOES re-run d1/c2/e2** (and
   persists retention flags + notifies via c5) : d1 paragraphs the
-  just-promoted admission (demotion-gap fix -- so the NEXT discharge finds its hot-window paragraph), c2
+  just-promoted admission (demotion-gap fix - so the NEXT discharge finds its hot-window paragraph), c2
   re-checks retention over the newly-compacted span, e2 embeds the incoming (`--hadm`-scoped so unapproved
   holdouts are never pre-embedded). c5 runs LAST and reads the PERSISTED `generation_audit` flags; it is
   best-effort (a fold-in that already committed is not failed by a notify error). c1 `--subject` still
@@ -434,11 +434,11 @@ repo root (`parents[1]`), fully relocatable with no baked-in absolute paths; it 
 `src/roles/contracts.py` imports `retention_taxonomy`.
 
 Consolidation-pass shared modules: **`src/io_utils.py`** (tolerant `read_jsonl`, atomic `write_jsonl`,
-`merge_jsonl` -- the `--subject` replace-in-place every fold-in stage now uses); **`src/cohort.py`**
-(single dayfirst-parsed cohort loader -- all stages derive ISO dates from it, fixing the old
+`merge_jsonl` - the `--subject` replace-in-place every fold-in stage now uses); **`src/cohort.py`**
+(single dayfirst-parsed cohort loader - all stages derive ISO dates from it, fixing the old
 `str(...)[:10]` day-first slop in c1/d1 prompts); **`src/database/pg.py`** (single psycopg2 connection
-helper, `vector=True` registers pgvector. EVERY DB caller routes through it -- pipeline stages, the
-FastAPI app, `holdout.promote()` and the fold-in lock -- so all inherit the protected-DB guard and the
+helper, `vector=True` registers pgvector. EVERY DB caller routes through it - pipeline stages, the
+FastAPI app, `holdout.promote()` and the fold-in lock - so all inherit the protected-DB guard and the
 one-line `[pg] database:` banner. It also hosts `retention_visibility_gaps()`. The ONLY exemption is
 `setup/smoke_test_schema.py`, which CREATEs/DROPs databases and must name them itself; pre-push check
 is no `psycopg2.connect(` outside `pg.py` and `setup/`).
@@ -446,7 +446,7 @@ is no `psycopg2.connect(` outside `pg.py` and `setup/`).
 `chat_json` retry cascades (empty-output think->no-think recovery; d2 previously had NO retry, so a
 thinking-budget blowout produced a silently empty TL;DR audited "ok") and honors
 `LONGSUM_SKIP_UNLOAD=1`. **`retention_taxonomy.normalize_fact`** centralises the surveillance
-promotion + disease-course reclassification (b2/b3/c1/db_persist_source share it -- persisted
+promotion + disease-course reclassification (b2/b3/c1/db_persist_source share it - persisted
 `retention_facts` rows are now taxonomy-normalized, ending the DB/file divergence). The
 `retention_validator` ModelSpec is retired (commented out in `config.py`; c2 is deterministic).
 
@@ -454,18 +454,18 @@ promotion + disease-course reclassification (b2/b3/c1/db_persist_source share it
 |---|---|---|
 | `a1_profile_cohort.py` | config | **`config.SOURCE_CSV`** (DUA BHC source CSV under `data/input/`, gitignored) |
 | `a2_build_cohort.py` | config | **`config.SOURCE_CSV`** + a diagnoses CSV (same `data/input/` dir, gitignored); datasketch, tqdm |
-| `a4_load_and_embed.py` | config, **database.pg** | **`.env`** (via database.pg; target db from `PGDATABASE`); **Postgres** patients/admissions DDL+upsert+HNSW + `CREATE EXTENSION vector`; sentence-transformers (arctic-embed), pgvector. **Precondition for schema.sql** -- creates the base tables it FKs to |
+| `a4_load_and_embed.py` | config, **database.pg** | **`.env`** (via database.pg; target db from `PGDATABASE`); **Postgres** patients/admissions DDL+upsert+HNSW + `CREATE EXTENSION vector`; sentence-transformers (arctic-embed), pgvector. **Precondition for schema.sql** - creates the base tables it FKs to |
 | `b1_retention_extractor.py` | config, holdout, io_utils, retention_taxonomy, roles.contracts | `config.SYNTH_DIR` (= `src/vendor/`) -> `text_cleaner.clean_for_llm`, `ollama_utils`; ollama (ornith) |
 | `b1_rerun_hadms.py` | config, retention_taxonomy, **b1** | (LLM via b1) |
-| `b2_build_ledger.py` | config, cohort, holdout, io_utils, retention_taxonomy, roles.contracts | -- Routing is a FOUR-way chain (ruled_out / recurrent_episode / candidate / **dropped**); the final branch records the prune with `tax.prune_reason()` instead of letting the fact fall out silently. `_build_node` records per-attribute `provenance`; `_merge_group`'s representative tiebreak is MOST RECENT (was longest-text), and `_rep_of` now holds that rule so `_split_group` can share it. Grouping runs in FOUR steps: `_cluster` -> `_split_cluster` -> `_consolidate_group` -> `_split_group`; the two split steps are the FM-7 identity guard and only ever increase entry count |
+| `b2_build_ledger.py` | config, cohort, holdout, io_utils, retention_taxonomy, roles.contracts | - Routing is a FOUR-way chain (ruled_out / recurrent_episode / candidate / **dropped**); the final branch records the prune with `tax.prune_reason()` instead of letting the fact fall out silently. `_build_node` records per-attribute `provenance`; `_merge_group`'s representative tiebreak is MOST RECENT (was longest-text), and `_rep_of` now holds that rule so `_split_group` can share it. Grouping runs in FOUR steps: `_cluster` -> `_split_cluster` -> `_consolidate_group` -> `_split_group` |
 | `b3_loss_audit.py` | config, retention_taxonomy, **b2** | -- |
 | `ledger_consolidate.py` | config, retention_taxonomy, roles.contracts, vendor `ollama_utils` | ollama (ornith) |
 | `b4_consolidate_ledger.py` | config, holdout, io_utils, **ledger_consolidate** | (LLM via ledger_consolidate) |
-| `c1_compactor.py` | config, cohort, io_utils, retention_taxonomy, roles.contracts, vendor `ollama_utils` | ollama (ornith). Ledger facts carry `admit_seq` (EARLIEST source admission) and are filtered to the compaction span -- per fold in incremental mode, span-max in full. Prevents a fold of admission 1 asserting conditions first documented at admission 8. Pinned fold-in = two-region: frozen physician prefix + machine continuation over the newly-aged delta only (c3/c4 judge the continuation) |
+| `c1_compactor.py` | config, cohort, io_utils, retention_taxonomy, roles.contracts, vendor `ollama_utils` | ollama (ornith). Ledger facts carry `admit_seq` (EARLIEST source admission) and are filtered to the compaction span - per fold in incremental mode, span-max in full. Prevents a fold of admission 1 asserting conditions first documented at admission 8. Pinned fold-in = two-region: frozen physician prefix + machine continuation over the newly-aged delta only (c3/c4 judge the continuation) |
 | `c2_retention_validator.py` | config, io_utils, retention_taxonomy, **b2**, **c1**, roles.contracts | -- |
 | `c3_faithfulness.py` | config, cohort, io_utils, roles.contracts | `config.SYNTH_DIR` (= `src/vendor/`) -> `faithfulness_validator`; deepseek (via fv) |
 | `c4_correct.py` | config, retention_taxonomy, **c1**, roles.contracts | `config.SYNTH_DIR` (= `src/vendor/`) -> `faithfulness_validator`, `ollama_utils` (chat_json cascade); ollama (compactor) |
-| `c5_review_queue.py` | config, io_utils, database.pg | **`.env`** (via database.pg); **Postgres** `generation_audit` (LATEST row per concern group; a newer ok row suppresses an older flag) -> **`review_queue`** table (UPSERT preserves physician `review_status`; unreproduced pending rows -> `auto_cleared`). Sources: admission-scoped `retention_extractor`/`episode_paragrapher`/`single_summary` (role IS in the DISTINCT ON key) + span-scoped `retention_validator`/`compactor`/`faithfulness_validator`, plus synthetic `prior_span_drift` from pinned Tier-3 edits. `retention_validator` is NOT shown in the TRIAGE tab -- the RETENTION tab owns it. `review_queue.jsonl` is a DB-projected cache; paho-mqtt + **Mosquitto** `longsum/review/pending` (optional). `--fresh` needs `--confirm`. Resolve/dismiss: `POST /tiered/review-queue/resolve` (notes MANDATORY on 'resolved'; FOR UPDATE CTE; appends `review_decisions` in the same txn) |
+| `c5_review_queue.py` | config, io_utils, database.pg | **`.env`** (via database.pg); **Postgres** `generation_audit` (LATEST row per concern group; a newer ok row suppresses an older flag) -> **`review_queue`** table (UPSERT preserves physician `review_status`; unreproduced pending rows -> `auto_cleared`). Sources: admission-scoped `retention_extractor`/`episode_paragrapher`/`single_summary` (role IS in the DISTINCT ON key) + span-scoped `retention_validator`/`compactor`/`faithfulness_validator`, plus synthetic `prior_span_drift` from pinned Tier-3 edits. `retention_validator` is NOT shown in the TRIAGE tab - the RETENTION tab owns it. `review_queue.jsonl` is a DB-projected cache; paho-mqtt + **Mosquitto** `longsum/review/pending` (optional). `--fresh` needs `--confirm`. Resolve/dismiss: `POST /tiered/review-queue/resolve` (notes MANDATORY on 'resolved'; FOR UPDATE CTE; appends `review_decisions` in the same txn) |
 | `d1_paragrapher.py` | config, cohort, holdout, io_utils, roles.contracts, vendor `ollama_utils` | ollama (ornith) |
 | `d2_tldr.py` | config, cohort, holdout, io_utils, roles.contracts, vendor `ollama_utils` | ollama (ornith) |
 | `d_coordinator.py` | config, cohort, io_utils, **c1**, holdout, roles.contracts | -- |
@@ -474,10 +474,10 @@ promotion + disease-course reclassification (b2/b3/c1/db_persist_source share it
 | `e2_embed_incoming.py` | config, database.pg, vendor `ollama_utils` | **`.env`** (via database.pg); **Postgres** `admissions.embedding` (pgvector); `--hadm` scopes to one incoming admission (fold-in); sentence-transformers |
 | `db_persist_source.py` | config, io_utils, retention_taxonomy (facts normalized at load), database.pg | **`.env`** (via database.pg); **Postgres** retention_facts/generation_audit; needs `schema.sql` applied. Audit path: spool -> `.processing` (atomic rename) -> upsert -> `audit_archive/generation_audit-YYYYMM.jsonl` (monthly segments; O(new) per fold-in, archive read only on `--fresh`) |
 | `db_persist_compaction.py` | config, io_utils, database.pg | **`.env`** (via database.pg); **Postgres** compaction_review/compaction_change; needs `schema.sql` applied |
-| `db_persist_retention.py` | config, io_utils, database.pg | **`.env`** (via database.pg); **Postgres** retention_review; needs `schema.sql` applied. Post-commit visibility assertion -- `SystemExit` on a gap |
-| `db_persist_promotions.py` | config, holdout (for `--rebuild-csv`), **database.pg** | **`.env`** (via database.pg -- protected-DB guard); **Postgres** promotions (backfill CSV->DB / `--rebuild-csv` DB->CSV); needs `schema.sql`. NOT in the fold-in chain |
+| `db_persist_retention.py` | config, io_utils, database.pg | **`.env`** (via database.pg); **Postgres** retention_review; needs `schema.sql` applied. Post-commit visibility assertion - `SystemExit` on a gap |
+| `db_persist_promotions.py` | config, holdout (for `--rebuild-csv`), **database.pg** | **`.env`** (via database.pg - protected-DB guard); **Postgres** promotions (backfill CSV->DB / `--rebuild-csv` DB->CSV); needs `schema.sql`. NOT in the fold-in chain |
 | `foldin_patient.py` | config, holdout, database.pg (advisory lock) | **`.env`**; **Postgres advisory lock** (cross-process fold-in serialisation); subprocess -> b1, db_persist_source, b2, b4, c1, d1, c2, c3, c4, d2, d_coordinator, d3, e2, db_persist_compaction, db_persist_retention, c5 |
-| `holdout.py` | config | readers (file): cohort_admissions.csv, promoted_admissions.csv; a corrupt CSV cache is auto-rebuilt from the `promotions` table (no longer silently treated as empty). **`promote()` / `project_csv_from_db()`: Postgres `promotions` via database.pg** (lazy import -- the read path stays DB-free) |
+| `holdout.py` | config | readers (file): cohort_admissions.csv, promoted_admissions.csv; a corrupt CSV cache is auto-rebuilt from the `promotions` table (no longer silently treated as empty). **`promote()` / `project_csv_from_db()`: Postgres `promotions` via database.pg** (lazy import - the read path stays DB-free) |
 | `f1_salience_recall.py` | config, retention_taxonomy, **c1**, **c2** | -- |
 | `f2_integrity.py` | config, retention_taxonomy, **c1**, holdout | -- |
 | `f3_compression.py` | config, **c1**, **c2**, **f1** | -- |
@@ -485,14 +485,14 @@ promotion + disease-course reclassification (b2/b3/c1/db_persist_source share it
 | `f5_pdsqi.py` | config, **f4** | (deepseek judge via f4) |
 | `f6_incoming_ref.py` | config, retention_taxonomy, holdout, **f4** | (deepseek judge via f4) |
 | `f9_merge_faithfulness.py` | config, **f4** | (deepseek judge via f4) |
-| `f10_nothink_audit.py` | config | -- (deterministic; reads `compaction_faithfulness.jsonl`, no LLM/DB) |
-| `eval_fact_presence.py` | config | ollama (deepseek judge); shared batched prose judge -- fact_presence + fact_contradiction verbs (studies import it) |
-| `f11_metric_validation.py` | config, **b2**, **c1**, **c2**, **f1**; subprocess -> f1 (+ f4 with --with-f4) | -- (perturbs sandboxed copies; deterministic unless --with-f4) |
+| `f10_nothink_audit.py` | config | - (deterministic; reads `compaction_faithfulness.jsonl`, no LLM/DB) |
+| `eval_fact_presence.py` | config | ollama (deepseek judge); shared batched prose judge - fact_presence + fact_contradiction verbs (studies import it) |
+| `f11_metric_validation.py` | config, **b2**, **c1**, **c2**, **f1**; subprocess -> f1 (+ f4 with --with-f4) | - (perturbs sandboxed copies; deterministic unless --with-f4) |
 | `f12_frontier.py` | config, retention_taxonomy, **c1**, **c2**, **f1**, roles.contracts | ollama (ornith compactor) on **--sweep only**; the gate mode is deterministic/no-GPU |
 | `src/studies/ledger_context_ablation/run_ledger_ablation.py` | config, **c1**, **f4**, **eval_fact_presence**, roles.contracts | ollama (ornith compactor + deepseek judge, two non-co-resident passes) |
 | `src/studies/position_bias/run_position_bias.py` | config, **c1**, **eval_fact_presence** | ollama (deepseek judge); statsmodels (or sklearn fallback) |
-| `src/studies/generalization/draw_cohort_gen.py` | config, **a2_build_cohort** | numpy, pandas; REQUIRES `LONGSUM_NAMESPACE` set -- draws the disjoint unseen cohort (excludes dev subject_ids, new seed) into `data_<ns>/interim/`; `--k` holds out the last k admissions per patient (k>=2 = production-replay pool) |
-| `src/studies/generalization/compare_generalization.py` | config | -- (read-only dev-vs-unseen gap over the two eval namespaces) |
+| `src/studies/generalization/draw_cohort_gen.py` | config, **a2_build_cohort** | numpy, pandas; REQUIRES `LONGSUM_NAMESPACE` set - draws the disjoint unseen cohort (excludes dev subject_ids, new seed) into `data_<ns>/interim/`; `--k` holds out the last k admissions per patient (k>=2 = production-replay pool) |
+| `src/studies/generalization/compare_generalization.py` | config | - (read-only dev-vs-unseen gap over the two eval namespaces) |
 | `src/studies/generalization/replay_production.py` | config, holdout | **`.env`**; subprocess -> `foldin_patient.py` per held-out discharge; REQUIRES `LONGSUM_NAMESPACE` set + refuses the dev DB (guards `PGDATABASE`); streams the k-holdout discharges through the fold-in against an ISOLATED `longitudinal_bhc_gen` DB (production-stage sim) |
 
 **Repo layout & external dependencies**
@@ -507,13 +507,13 @@ external source tree); role prompt/contract code in `src/roles/`; diagnostic too
 `src/clinical_review_tools/`; the abbreviation dictionary in `src/resources/`.
 
 The only reach-outs beyond the repo:
-1. **DUA data** -- `config.SOURCE_CSV` (BHC source CSV) + the diagnoses CSV live under `data/input/`,
+1. **DUA data** - `config.SOURCE_CSV` (BHC source CSV) + the diagnoses CSV live under `data/input/`,
    gitignored, NEVER committed (override the CSV path with `LONGSUM_SOURCE_CSV`). Read by a1/a2.
-2. **`.env` at `PROJECT_ROOT`** (repo root) -- Postgres credentials; read by a4, d3, db_persist_*, e2,
+2. **`.env` at `PROJECT_ROOT`** (repo root) - Postgres credentials; read by a4, d3, db_persist_*, e2,
    c5, foldin.
-3. **Postgres `longitudinal_bhc`** -- patients/admissions (a4, e2) + tiered_*/retention_facts/
+3. **Postgres `longitudinal_bhc_test`** - patients/admissions (a4, e2) + tiered_*/retention_facts/
    generation_audit/compaction_review/retention_review/promotions (d3, db_persist_*, holdout.promote,
    longsum_api, c5) + the fold-in **advisory lock** (foldin_patient). The generalisation run uses a
    separate `longitudinal_bhc_gen` DB.
-4. **Ollama** (local) -- ornith (generation), deepseek (judge); plus pip deps (sentence-transformers,
+4. **Ollama** (local) - ornith (generation), deepseek (judge); plus pip deps (sentence-transformers,
    pgvector, psycopg2, fastapi/uvicorn, paho-mqtt, datasketch, ...).
