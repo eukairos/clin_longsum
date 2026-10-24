@@ -176,7 +176,7 @@ flowchart TD
     subgraph R["R · Physician review"]
         api["longsum_api.py<br/>/tiered/review (FastAPI)"]:::py
         submit[["POST …/submit<br/>approved_summary_md · summary_version"]]:::py
-        api - "Approve" --> submit
+        api -- "Approve" --> submit
     end
     TIER --> api
 
@@ -198,13 +198,13 @@ flowchart TD
     end
     foldin --> k1
 
-    k2 - "[DB W]" --> promtbl[("promotions<br/>(source of truth)")]:::db
+    k2 -- "[DB W]" --> promtbl[("promotions<br/>(source of truth)")]:::db
     promtbl -. "projects cache" .-> prom(["promoted_admissions.csv"]):::f
     prom -.-> holdpy{{"holdout.py<br/>is_holdout − promoted"}}:::ctl
     holdpy -. "ᴴ span gating" .-> k3
     holdpy -. "ᴴ" .-> k7
-    k7 - "folded_in_at = NOW() (same txn)" --> TIER
-    k8 - "[DB W]" --> EMB[("admissions.embedding")]:::db
+    k7 -- "folded_in_at = NOW() (same txn)" --> TIER
+    k8 -- "[DB W]" --> EMB[("admissions.embedding")]:::db
 
     style CH fill:#fafafa,stroke:#cccccc,color:#111
     style R fill:#fceaea,stroke:#cc5f5f,color:#111
